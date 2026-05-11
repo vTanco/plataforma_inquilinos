@@ -35,8 +35,47 @@ pool.connect((err, client, release) => {
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_in_production';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '105035380421-9jcph3rp9qug6d4slbrlledptjm2er90.apps.googleusercontent.com';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+// API Routes
+app.post('/api/auth/google', async (req, res) => {
+  const { credential } = req.body;
+  
+  if (!credential) {
+    return res.status(400).json({ error: 'Falta credencial de Google.' });
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const email = payload.email;
+    const name = payload.name;
+    
+    // Check if user exists
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    
+    if (userResult.rows.length > 0) {
+      // User exists -> Login
+      const user = userResult.rows[0];
+      delete user.password_hash;
+      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+      return res.json({ user, token });
+    } else {
+      // User does not exist -> Send back requireSetup with pre-filled info
+      return res.status(202).json({ requireSetup: true, email, name, message: 'Falta completar perfil' });
+    }
+  } catch (err) {
+    console.error('Error verifying Google token:', err);
+    res.status(401).json({ error: 'Token de Google inválido.' });
+  }
+});
 
 // API Routes
 app.get('/api/health', (req, res) => {
@@ -45,8 +84,23 @@ app.get('/api/health', (req, res) => {
 
 // Register (Tenant or Technician)
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, role, service_category, phone, description, latitude, longitude } = req.body;
+  let { name, email, password, role, service_category, phone, description, latitude, longitude, credential } = req.body;
   
+  if (credential) {
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      name = payload.name;
+      email = payload.email;
+      password = Math.random().toString(36).slice(-10); // Random password since they use Google
+    } catch (err) {
+      return res.status(401).json({ error: 'Token de Google inválido.' });
+    }
+  }
+
   if (!name || !email || !password || !role || latitude === undefined || longitude === undefined) {
     return res.status(400).json({ error: 'Faltan campos obligatorios, incluyendo la ubicación.' });
   }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, LogIn, Mail, Lock, User, Briefcase, Phone, FileText, MapPin } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -28,6 +29,28 @@ export const Login = () => {
     }
   };
 
+  const handleGoogleLogin = async (credentialResponse) => {
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential })
+      });
+      const data = await res.json();
+      if (res.status === 202 && data.requireSetup) {
+        setError('Cuenta no encontrada. Ve a "Registrarse" para crearla.');
+      } else if (!res.ok) {
+        throw new Error(data.error || 'Error al iniciar sesión con Google');
+      } else {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        navigate('/');
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
     <div className="page-container" style={{ display: 'flex', justifyContent: 'center', marginTop: '40px' }}>
       <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '400px' }}>
@@ -50,8 +73,20 @@ export const Login = () => {
               <input type="password" name="password" className="input-field" style={{ paddingLeft: '40px' }} value={formData.password} onChange={handleChange} required />
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }}>Entrar</button>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }}>Entrar con Email</button>
         </form>
+        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '100%', height: '1px', background: 'var(--border)', position: 'relative' }}>
+            <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-card)', padding: '0 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>O</span>
+          </div>
+          <GoogleLogin 
+            onSuccess={handleGoogleLogin} 
+            onError={() => setError('Fallo al conectar con Google')} 
+            theme="filled_black" 
+            text="signin_with" 
+            shape="pill"
+          />
+        </div>
       </div>
     </div>
   );
@@ -77,6 +112,32 @@ export const Register = ({ role = 'tenant' }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al registrarse');
+      
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleGoogleRegister = async (credentialResponse) => {
+    if (!formData.latitude) {
+      setError('Por favor, obtén tu ubicación actual antes de registrarte.');
+      return;
+    }
+    if (role === 'technician' && (!formData.service_category || !formData.phone || !formData.description)) {
+      setError('Por favor, completa los datos de tu categoría de servicio antes de usar Google.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, credential: credentialResponse.credential })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al registrarse con Google');
       
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -176,9 +237,24 @@ export const Register = ({ role = 'tenant' }) => {
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }} disabled={!formData.latitude}>
-            {isTechnician ? 'Registrarme como Técnico' : 'Crear Cuenta'}
+            {isTechnician ? 'Registrarme con Email' : 'Crear Cuenta con Email'}
           </button>
         </form>
+        <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '100%', height: '1px', background: 'var(--border)', position: 'relative' }}>
+            <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-card)', padding: '0 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>O</span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+            Asegúrate de obtener tu ubicación (y completar los datos arriba) antes de pinchar en el botón de Google.
+          </p>
+          <GoogleLogin 
+            onSuccess={handleGoogleRegister} 
+            onError={() => setError('Fallo al conectar con Google')} 
+            theme="filled_black" 
+            text="signup_with" 
+            shape="pill"
+          />
+        </div>
       </div>
     </div>
   );
