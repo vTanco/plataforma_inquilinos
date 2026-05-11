@@ -135,7 +135,7 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
     }
 
     try {
-      const signatureUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+      const signatureUrl = sigCanvas.current.getCanvas().toDataURL('image/png');
       const doc = generatePDF(signatureUrl);
       const pdfBase64 = doc.output('datauristring');
 
@@ -161,7 +161,7 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
       onComplete();
     } catch (err) {
       console.error('Error in handleSubmit:', err);
-      alert('Hubo un error al generar o guardar la contratación. Revisa la consola para más detalles.');
+      alert(`Hubo un error: ${err.message}`);
     }
   };
 
