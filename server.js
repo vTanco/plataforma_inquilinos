@@ -24,12 +24,19 @@ const pool = new Pool({
   }
 });
 
-// Test DB connection
-pool.connect((err, client, release) => {
+// Test DB connection and run migrations
+pool.connect(async (err, client, release) => {
   if (err) {
     console.error('Error acquiring client', err.stack);
   } else {
     console.log('Connected to Neon PostgreSQL database');
+    try {
+      await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS signature TEXT;');
+      await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pdf_document TEXT;');
+      console.log('Migrations executed successfully');
+    } catch (migErr) {
+      console.error('Migration failed', migErr);
+    }
     release();
   }
 });
@@ -238,8 +245,8 @@ app.post('/api/appointments', authenticateToken, async (req, res) => {
     );
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error creating appointment' });
+    console.error('Error in /api/appointments:', err);
+    res.status(500).json({ error: 'Error creating appointment', details: err.message });
   }
 });
 
