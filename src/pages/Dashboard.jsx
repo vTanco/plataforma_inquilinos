@@ -151,7 +151,9 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
       });
       
       if (!response.ok) {
-        throw new Error('Error en el servidor al guardar la contratación');
+        const errData = await response.json().catch(() => ({}));
+        console.error('Error detallado del servidor:', errData);
+        throw new Error(`Error en el servidor: ${errData.details || errData.error || 'Desconocido'}`);
       }
 
       setFormData(finalData);
