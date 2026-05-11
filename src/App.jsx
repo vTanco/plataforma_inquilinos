@@ -90,6 +90,8 @@ const HomePage = () => {
   );
 };
 
+import { Login, Register } from './pages/Auth';
+
 const App = () => {
   return (
     <Router>
@@ -98,9 +100,9 @@ const App = () => {
         <Route path="/" element={<HomePage />} />
         <Route path="/services" element={<div className="page-container"><h2>Servicios (Próximamente)</h2></div>} />
         <Route path="/technicians" element={<div className="page-container"><h2>Técnicos (Próximamente)</h2></div>} />
-        <Route path="/login" element={<div className="page-container"><h2>Iniciar Sesión (Próximamente)</h2></div>} />
-        <Route path="/register" element={<div className="page-container"><h2>Registro (Próximamente)</h2></div>} />
-        <Route path="/technicians/register" element={<div className="page-container"><h2>Registro de Técnico (Próximamente)</h2></div>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register role="tenant" />} />
+        <Route path="/technicians/register" element={<Register role="technician" />} />
       </Routes>
     </Router>
   );
