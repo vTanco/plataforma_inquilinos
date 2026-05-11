@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Calendar, Clock, Star, PenTool, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { LogOut, Calendar as CalendarIcon, Clock, Star, PenTool, CheckCircle, AlertCircle, FileText, User } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
+import ReactCalendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 
 const TechnicianDashboard = ({ user }) => {
   const [appointments, setAppointments] = useState([]);
@@ -22,7 +24,7 @@ const TechnicianDashboard = ({ user }) => {
       
       <div className="glass-panel">
         <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Calendar className="text-primary" /> Mi Agenda de Trabajos
+          <CalendarIcon className="text-primary" /> Mi Agenda de Trabajos
         </h3>
         
         {appointments.length === 0 ? (
@@ -38,9 +40,16 @@ const TechnicianDashboard = ({ user }) => {
                   </p>
                 </div>
                 <div>
-                  <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(34, 197, 94, 0.2)', color: app.status === 'pending' ? '#eab308' : '#22c55e' }}>
+                  <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(34, 197, 94, 0.2)', color: app.status === 'pending' ? '#eab308' : '#22c55e', display: 'inline-block', marginBottom: '8px' }}>
                     {app.status.toUpperCase()}
                   </span>
+                  {app.pdf_document && (
+                    <div style={{ marginTop: '8px' }}>
+                      <a href={app.pdf_document} download={`Recibo_${app.service_category}.pdf`} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                        <FileText size={14} /> Ver Recibo
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -60,23 +69,48 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
     signature: ''
   });
   const [technicians, setTechnicians] = useState([]);
+  const [selectedTechProfile, setSelectedTechProfile] = useState(null);
+  
+  // Calendar states
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedTime, setSelectedTime] = useState('');
+  
   const sigCanvas = useRef({});
 
   const services = ['Fontanería', 'Carpintería', 'Electricidad', 'Pintura', 'Jardinería', 'Humedades'];
+  const availableTimes = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
 
   useEffect(() => {
     if (step === 2 && formData.service_category) {
-      fetch(`/api/technicians?category=${formData.service_category}`)
+      fetch(`/api/technicians?category=${formData.service_category}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      })
         .then(res => res.json())
         .then(data => setTechnicians(data))
         .catch(console.error);
     }
   }, [step, formData.service_category]);
 
+  // Update appointment date when date or time changes
+  useEffect(() => {
+    if (selectedDate && selectedTime) {
+      const [hours, minutes] = selectedTime.split(':');
+      const newDate = new Date(selectedDate);
+      newDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      setFormData(prev => ({ ...prev, appointment_date: newDate.toISOString() }));
+    }
+  }, [selectedDate, selectedTime]);
+
   const handleNext = () => setStep(step + 1);
   const handlePrev = () => setStep(step - 1);
 
-  const generatePDF = () => {
+  const selectTechnician = (techId) => {
+    setFormData({ ...formData, technician_id: techId });
+    setSelectedTechProfile(null);
+    handleNext();
+  };
+
+  const generatePDF = (signatureUrl) => {
     const doc = new jsPDF();
     doc.setFontSize(22);
     doc.text('Recibo de Contratación - VecinosConnect', 20, 20);
@@ -87,19 +121,27 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
     doc.text(`Fecha y Hora: ${new Date(formData.appointment_date).toLocaleString()}`, 20, 60);
     
     doc.text('Firma del Inquilino:', 20, 80);
-    if (formData.signature) {
-      doc.addImage(formData.signature, 'PNG', 20, 90, 80, 40);
+    if (signatureUrl) {
+      doc.addImage(signatureUrl, 'PNG', 20, 90, 80, 40);
     }
     
-    doc.save(`Recibo_${formData.service_category}.pdf`);
+    return doc;
   };
 
   const handleSubmit = async () => {
-    const signatureUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
-    const finalData = { ...formData, signature: signatureUrl };
-    
+    if (sigCanvas.current.isEmpty()) {
+      alert('Por favor, firma el documento antes de confirmar.');
+      return;
+    }
+
     try {
-      await fetch('/api/appointments', {
+      const signatureUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+      const doc = generatePDF(signatureUrl);
+      const pdfBase64 = doc.output('datauristring');
+
+      const finalData = { ...formData, signature: signatureUrl, pdf_document: pdfBase64 };
+    
+      const response = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -107,12 +149,17 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
         },
         body: JSON.stringify(finalData)
       });
+      
+      if (!response.ok) {
+        throw new Error('Error en el servidor al guardar la contratación');
+      }
+
       setFormData(finalData);
-      generatePDF();
+      doc.save(`Recibo_${formData.service_category}.pdf`);
       onComplete();
     } catch (err) {
-      console.error(err);
-      alert('Error al procesar la contratación.');
+      console.error('Error in handleSubmit:', err);
+      alert('Hubo un error al generar o guardar la contratación. Revisa la consola para más detalles.');
     }
   };
 
@@ -146,29 +193,53 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
         </div>
       )}
 
-      {step === 2 && (
+      {step === 2 && !selectedTechProfile && (
         <div className="animate-fade-in">
-          <h4 style={{ marginBottom: '16px' }}>2. Elige un técnico profesional</h4>
+          <h4 style={{ marginBottom: '16px' }}>2. Elige un técnico profesional (a menos de 30km)</h4>
           {technicians.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)' }}>No hay técnicos disponibles para este servicio ahora mismo.</p>
+            <p style={{ color: 'var(--text-muted)' }}>No hay técnicos disponibles en tu zona para este servicio.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {technicians.map(tech => (
-                <div key={tech.id} onClick={() => setFormData({ ...formData, technician_id: tech.id })} style={{ padding: '20px', border: `2px solid ${formData.technician_id === tech.id ? 'var(--primary)' : 'var(--border)'}`, borderRadius: '12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div key={tech.id} style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <h5 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>{tech.name}</h5>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{tech.description}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', marginBottom: '8px' }}>
+                      <Star fill="currentColor" size={16} /> <span style={{ fontWeight: 600 }}>{tech.rating}</span> <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({tech.reviews_count} opiniones)</span>
+                      {tech.distance && <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: '8px' }}>• A {parseFloat(tech.distance).toFixed(1)} km</span>}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24' }}>
-                    <Star fill="currentColor" size={18} /> {tech.rating} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({tech.reviews_count})</span>
-                  </div>
+                  <button onClick={() => setSelectedTechProfile(tech)} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.9rem' }}>
+                    <User size={16} /> Ver Perfil
+                  </button>
                 </div>
               ))}
             </div>
           )}
           <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
             <button onClick={handlePrev} className="btn btn-outline">Atrás</button>
-            <button onClick={handleNext} disabled={!formData.technician_id} className="btn btn-primary">Continuar</button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && selectedTechProfile && (
+        <div className="animate-fade-in glass-panel" style={{ background: 'rgba(255,255,255,0.02)' }}>
+          <h4 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>Perfil Profesional: {selectedTechProfile.name}</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', marginBottom: '16px' }}>
+            <Star fill="currentColor" size={18} /> <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>{selectedTechProfile.rating}</span> 
+            <span style={{ color: 'var(--text-muted)' }}>({selectedTechProfile.reviews_count} reseñas verificadas)</span>
+          </div>
+          
+          <div style={{ marginBottom: '24px' }}>
+            <h5 style={{ color: 'var(--text-muted)', marginBottom: '8px', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sobre el profesional</h5>
+            <p style={{ fontSize: '1.05rem', lineHeight: 1.6 }}>{selectedTechProfile.description}</p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
+            <button onClick={() => setSelectedTechProfile(null)} className="btn btn-outline">Atrás</button>
+            <button onClick={() => selectTechnician(selectedTechProfile.id)} className="btn btn-primary">
+              <CheckCircle size={18} /> Elegir este profesional
+            </button>
           </div>
         </div>
       )}
@@ -176,18 +247,46 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
       {step === 3 && (
         <div className="animate-fade-in">
           <h4 style={{ marginBottom: '16px' }}>3. Selecciona fecha y hora</h4>
-          <div className="form-group">
-            <label className="input-label">Fecha y Hora de la cita</label>
-            <input 
-              type="datetime-local" 
-              className="input-field" 
-              value={formData.appointment_date}
-              onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
-            />
+          
+          <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 300px' }}>
+              <label className="input-label" style={{ marginBottom: '12px' }}>Elige un día</label>
+              <ReactCalendar 
+                onChange={setSelectedDate} 
+                value={selectedDate}
+                minDate={new Date(new Date().setHours(0, 0, 0, 0))}
+                locale="es-ES"
+              />
+            </div>
+
+            <div style={{ flex: '1 1 200px' }}>
+              <label className="input-label" style={{ marginBottom: '12px' }}>Horas disponibles</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '12px' }}>
+                {availableTimes.map(time => (
+                  <button 
+                    key={time}
+                    onClick={() => setSelectedTime(time)}
+                    style={{ 
+                      padding: '12px', 
+                      borderRadius: '8px', 
+                      background: selectedTime === time ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${selectedTime === time ? 'var(--primary)' : 'var(--border)'}`,
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontWeight: selectedTime === time ? 600 : 400,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {time}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
+
           <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
             <button onClick={handlePrev} className="btn btn-outline">Atrás</button>
-            <button onClick={handleNext} disabled={!formData.appointment_date} className="btn btn-primary">Continuar</button>
+            <button onClick={handleNext} disabled={!selectedDate || !selectedTime} className="btn btn-primary">Continuar</button>
           </div>
         </div>
       )}
@@ -246,6 +345,19 @@ const TenantDashboard = ({ user }) => {
     );
   }
 
+  const getTileClassName = ({ date, view }) => {
+    if (view === 'month') {
+      const hasApp = appointments.find(app => {
+        const appDate = new Date(app.appointment_date);
+        return appDate.getDate() === date.getDate() &&
+               appDate.getMonth() === date.getMonth() &&
+               appDate.getFullYear() === date.getFullYear();
+      });
+      return hasApp ? 'has-appointment' : null;
+    }
+    return null;
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
@@ -253,10 +365,25 @@ const TenantDashboard = ({ user }) => {
         <button onClick={() => setIsHiring(true)} className="btn btn-primary"><PenTool size={18} /> Nueva Contratación</button>
       </div>
       
-      <div className="glass-panel">
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FileText className="text-primary" /> Historial de Contrataciones
-        </h3>
+      <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div className="glass-panel" style={{ flex: '1 1 350px' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CalendarIcon className="text-primary" /> Mi Calendario
+          </h3>
+          <ReactCalendar 
+            tileClassName={getTileClassName}
+            locale="es-ES"
+          />
+          <div style={{ marginTop: '16px', fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '16px', height: '16px', background: 'rgba(139, 92, 246, 0.4)', border: '1px solid var(--accent)', borderRadius: '4px' }}></div>
+            <span>Día con servicio programado</span>
+          </div>
+        </div>
+
+        <div className="glass-panel" style={{ flex: '2 1 500px' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText className="text-primary" /> Historial de Contrataciones
+          </h3>
         
         {appointments.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>No tienes servicios contratados todavía.</p>
@@ -270,10 +397,15 @@ const TenantDashboard = ({ user }) => {
                     <Clock size={16} /> {new Date(app.appointment_date).toLocaleString()}
                   </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(34, 197, 94, 0.2)', color: app.status === 'pending' ? '#eab308' : '#22c55e' }}>
                     {app.status.toUpperCase()}
                   </span>
+                  {app.pdf_document && (
+                    <a href={app.pdf_document} download={`Recibo_${app.service_category}.pdf`} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
+                      <FileText size={16} /> Ver Recibo
+                    </a>
+                  )}
                   <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#ef4444', color: '#ef4444' }}>
                     <AlertCircle size={16} /> Abrir Incidencia
                   </button>
@@ -282,6 +414,7 @@ const TenantDashboard = ({ user }) => {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

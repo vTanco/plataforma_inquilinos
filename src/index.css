@@ -274,3 +274,74 @@ a:hover {
   justify-content: space-between;
   align-items: center;
 }
+
+/* Custom React Calendar Dark Mode */
+.react-calendar {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(25, 28, 36, 0.9) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  font-family: 'Outfit', sans-serif !important;
+  color: #f3f4f6 !important;
+  padding: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.react-calendar,
+.react-calendar *,
+.react-calendar *:before,
+.react-calendar *:after {
+  text-decoration: none;
+}
+
+.react-calendar button {
+  color: #f3f4f6 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+}
+
+.react-calendar button:enabled:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.react-calendar button:disabled {
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.react-calendar button.react-calendar__tile--now {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+}
+
+.react-calendar button.react-calendar__tile--active {
+  background: var(--primary) !important;
+  color: white !important;
+  font-weight: bold;
+}
+
+.react-calendar button.has-appointment {
+  background: rgba(139, 92, 246, 0.4) !important;
+  color: white !important;
+  font-weight: bold;
+  border: 1px solid var(--accent) !important;
+}
+
+.react-calendar__navigation button {
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+}
+
+.react-calendar__month-view__days__day--weekend {
+  color: #f87171 !important;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:focus {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}

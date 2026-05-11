@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, LogIn, Mail, Lock, User, Briefcase, Phone, FileText } from 'lucide-react';
+import { UserPlus, LogIn, Mail, Lock, User, Briefcase, Phone, FileText, MapPin } from 'lucide-react';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -153,7 +153,29 @@ export const Register = ({ role = 'tenant' }) => {
             </>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }}>
+          <div className="form-group">
+            <label className="input-label">Ubicación (Requerida para buscar servicios a menos de 30km)</label>
+            {formData.latitude && formData.longitude ? (
+               <div style={{ padding: '12px', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <MapPin size={20} /> Ubicación registrada correctamente
+               </div>
+            ) : (
+              <button type="button" onClick={() => {
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => setFormData({ ...formData, latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                    (err) => alert('Error al obtener la ubicación. Por favor, permite el acceso en tu navegador.')
+                  );
+                } else {
+                  alert('Tu navegador no soporta geolocalización.');
+                }
+              }} className="btn btn-outline" style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
+                <MapPin size={20} /> Obtener mi ubicación actual
+              </button>
+            )}
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '16px' }} disabled={!formData.latitude}>
             {isTechnician ? 'Registrarme como Técnico' : 'Crear Cuenta'}
           </button>
         </form>

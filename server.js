@@ -45,10 +45,10 @@ app.get('/api/health', (req, res) => {
 
 // Register (Tenant or Technician)
 app.post('/api/auth/register', async (req, res) => {
-  const { name, email, password, role, service_category, phone, description } = req.body;
+  const { name, email, password, role, service_category, phone, description, latitude, longitude } = req.body;
   
-  if (!name || !email || !password || !role) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios.' });
+  if (!name || !email || !password || !role || latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios, incluyendo la ubicación.' });
   }
   
   if (role !== 'tenant' && role !== 'technician') {
@@ -68,8 +68,8 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Insert user
     const newUserResult = await pool.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
-      [name, email, password_hash, role]
+      'INSERT INTO users (name, email, password_hash, role, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, latitude, longitude',
+      [name, email, password_hash, role, latitude, longitude]
     );
     const newUser = newUserResult.rows[0];
 
@@ -138,16 +138,35 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-app.get('/api/technicians', async (req, res) => {
+app.get('/api/technicians', authenticateToken, async (req, res) => {
   const { category } = req.query;
   try {
-    let query = 'SELECT u.id, u.name, t.service_category, t.description, t.rating, t.reviews_count FROM users u JOIN technician_profiles t ON u.id = t.user_id';
-    let values = [];
-    if (category) {
-      query += ' WHERE t.service_category = $1';
-      values.push(category);
+    // 1. Get the current user's location
+    const userRes = await pool.query('SELECT latitude, longitude FROM users WHERE id = $1', [req.user.id]);
+    const userLocation = userRes.rows[0];
+
+    if (!userLocation || userLocation.latitude == null || userLocation.longitude == null) {
+      return res.status(400).json({ error: 'Ubicación del usuario no encontrada. No se pueden calcular distancias.' });
     }
-    const result = await pool.query(query, values);
+
+    const { latitude, longitude } = userLocation;
+
+    // 2. Query technicians in a 30km radius
+    let query = `
+      SELECT * FROM (
+        SELECT u.id, u.name, t.service_category, t.description, t.rating, t.reviews_count,
+        ( 6371 * acos( cos( radians($1) ) * cos( radians( u.latitude ) ) 
+        * cos( radians( u.longitude ) - radians($2) ) + sin( radians($1) ) 
+        * sin( radians( u.latitude ) ) ) ) AS distance
+        FROM users u 
+        JOIN technician_profiles t ON u.id = t.user_id
+        WHERE t.service_category = $3
+      ) as loc
+      WHERE distance <= 30
+      ORDER BY distance ASC
+    `;
+    
+    const result = await pool.query(query, [latitude, longitude, category]);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -156,11 +175,11 @@ app.get('/api/technicians', async (req, res) => {
 });
 
 app.post('/api/appointments', authenticateToken, async (req, res) => {
-  const { technician_id, service_category, appointment_date, signature } = req.body;
+  const { technician_id, service_category, appointment_date, signature, pdf_document } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO appointments (tenant_id, technician_id, service_category, appointment_date, signature) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [req.user.id, technician_id, service_category, appointment_date, signature]
+      'INSERT INTO appointments (tenant_id, technician_id, service_category, appointment_date, signature, pdf_document) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [req.user.id, technician_id, service_category, appointment_date, signature, pdf_document]
     );
     res.json(result.rows[0]);
   } catch (err) {
