@@ -1,10 +1,17 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Wrench, Droplets, Zap, Paintbrush, TreePine, CloudRain, UserPlus, CalendarCheck } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, Wrench, Droplets, Zap, Paintbrush, TreePine, CloudRain, UserPlus, CalendarCheck, LogOut } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAuthenticated = !!localStorage.getItem('token');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   return (
     <nav className="nav-header">
@@ -17,7 +24,12 @@ const Navbar = () => {
         <Link to="/services" className={`nav-link ${location.pathname === '/services' ? 'active' : ''}`}>Servicios</Link>
         <Link to="/technicians" className={`nav-link ${location.pathname === '/technicians' ? 'active' : ''}`}>Técnicos</Link>
         {isAuthenticated ? (
-          <Link to="/dashboard" className="btn btn-primary" style={{ marginLeft: '16px' }}>Mi Panel</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: '16px' }}>
+            <Link to="/dashboard" className="btn btn-primary">Mi Panel</Link>
+            <button onClick={handleLogout} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
+              <LogOut size={16} /> Salir
+            </button>
+          </div>
         ) : (
           <>
             <Link to="/login" className="btn btn-outline" style={{ marginLeft: '16px' }}>Iniciar Sesión</Link>

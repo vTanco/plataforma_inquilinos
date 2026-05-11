@@ -304,15 +304,6 @@ export const Dashboard = () => {
 
   return (
     <>
-      <div style={{ position: 'fixed', top: '24px', right: '40px', zIndex: 101 }}>
-        <button 
-          onClick={() => { localStorage.clear(); navigate('/'); }} 
-          className="btn btn-outline"
-          style={{ padding: '8px 16px', fontSize: '0.9rem' }}
-        >
-          <LogOut size={16} /> Salir
-        </button>
-      </div>
       {user.role === 'tenant' ? <TenantDashboard user={user} /> : <TechnicianDashboard user={user} />}
     </>
   );
