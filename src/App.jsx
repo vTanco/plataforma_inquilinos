@@ -4,6 +4,8 @@ import { Home, Wrench, Droplets, Zap, Paintbrush, TreePine, CloudRain, UserPlus,
 
 const Navbar = () => {
   const location = useLocation();
+  const isAuthenticated = !!localStorage.getItem('token');
+
   return (
     <nav className="nav-header">
       <Link to="/" className="nav-logo">
@@ -14,8 +16,14 @@ const Navbar = () => {
         <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Inicio</Link>
         <Link to="/services" className={`nav-link ${location.pathname === '/services' ? 'active' : ''}`}>Servicios</Link>
         <Link to="/technicians" className={`nav-link ${location.pathname === '/technicians' ? 'active' : ''}`}>Técnicos</Link>
-        <Link to="/login" className="btn btn-outline" style={{ marginLeft: '16px' }}>Iniciar Sesión</Link>
-        <Link to="/register" className="btn btn-primary">Registrarse</Link>
+        {isAuthenticated ? (
+          <Link to="/dashboard" className="btn btn-primary" style={{ marginLeft: '16px' }}>Mi Panel</Link>
+        ) : (
+          <>
+            <Link to="/login" className="btn btn-outline" style={{ marginLeft: '16px' }}>Iniciar Sesión</Link>
+            <Link to="/register" className="btn btn-primary">Registrarse</Link>
+          </>
+        )}
       </div>
     </nav>
   );
@@ -91,6 +99,7 @@ const HomePage = () => {
 };
 
 import { Login, Register } from './pages/Auth';
+import { Dashboard } from './pages/Dashboard';
 
 const App = () => {
   return (
@@ -98,6 +107,7 @@ const App = () => {
       <Navbar />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/services" element={<div className="page-container"><h2>Servicios (Próximamente)</h2></div>} />
         <Route path="/technicians" element={<div className="page-container"><h2>Técnicos (Próximamente)</h2></div>} />
         <Route path="/login" element={<Login />} />

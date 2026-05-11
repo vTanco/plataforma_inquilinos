@@ -28,7 +28,29 @@ async function initDB() {
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         service_category VARCHAR(100) NOT NULL,
         phone VARCHAR(50),
-        description TEXT
+        description TEXT,
+        rating DECIMAL(3,2) DEFAULT 0.0,
+        reviews_count INT DEFAULT 0
+      );
+    `);
+
+    // In case the table already existed, add the new columns
+    await pool.query(`
+      ALTER TABLE technician_profiles 
+      ADD COLUMN IF NOT EXISTS rating DECIMAL(3,2) DEFAULT 0.0,
+      ADD COLUMN IF NOT EXISTS reviews_count INT DEFAULT 0;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        tenant_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        technician_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        service_category VARCHAR(100) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        appointment_date TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        signature TEXT
       );
     `);
 

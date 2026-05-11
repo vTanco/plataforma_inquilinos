@@ -126,6 +126,65 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
+app.get('/api/technicians', async (req, res) => {
+  const { category } = req.query;
+  try {
+    let query = 'SELECT u.id, u.name, t.service_category, t.description, t.rating, t.reviews_count FROM users u JOIN technician_profiles t ON u.id = t.user_id';
+    let values = [];
+    if (category) {
+      query += ' WHERE t.service_category = $1';
+      values.push(category);
+    }
+    const result = await pool.query(query, values);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching technicians' });
+  }
+});
+
+app.post('/api/appointments', authenticateToken, async (req, res) => {
+  const { technician_id, service_category, appointment_date, signature } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO appointments (tenant_id, technician_id, service_category, appointment_date, signature) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [req.user.id, technician_id, service_category, appointment_date, signature]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error creating appointment' });
+  }
+});
+
+app.get('/api/appointments', authenticateToken, async (req, res) => {
+  try {
+    let query = '';
+    if (req.user.role === 'tenant') {
+      query = 'SELECT a.*, u.name as other_party_name FROM appointments a JOIN users u ON a.technician_id = u.id WHERE a.tenant_id = $1 ORDER BY a.appointment_date DESC';
+    } else {
+      query = 'SELECT a.*, u.name as other_party_name FROM appointments a JOIN users u ON a.tenant_id = u.id WHERE a.technician_id = $1 ORDER BY a.appointment_date DESC';
+    }
+    const result = await pool.query(query, [req.user.id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching appointments' });
+  }
+});
+
 // Serve static files in production
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
