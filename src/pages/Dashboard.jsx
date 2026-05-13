@@ -7,7 +7,7 @@ import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
 
 const generateProfessionalPDF = (data) => {
-  const { tenantName, tenantEmail, techName, techEmail, serviceCategory, appointmentDate, description, signatureUrl, estimatedHours, hourlyRate } = data;
+  const { tenantName, tenantEmail, techName, techEmail, serviceCategory, appointmentDate, description, signatureUrl, estimatedHours, hourlyRate, helpers = [] } = data;
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 20;
@@ -134,36 +134,62 @@ const generateProfessionalPDF = (data) => {
   }
 
   // --- PRICING SUMMARY ---
-  const rate = parseFloat(hourlyRate) || 30;
+  const leadRate = parseFloat(hourlyRate) || 30;
   const hours = parseInt(estimatedHours) || 1;
-  const subtotal = rate * hours;
+  
+  let totalRate = leadRate;
+  const helperCosts = helpers.map(h => {
+    const r = parseFloat(h.hourly_rate) || 0;
+    totalRate += r;
+    return { name: h.name, rate: r, cost: r * hours };
+  });
+
+  const subtotal = totalRate * hours;
   const iva = subtotal * 0.21;
   const total = subtotal + iva;
 
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('PRESUPUESTO FINAL', margin, y);
+  doc.text('PRESUPUESTO DETALLADO', margin, y);
   y += 6;
+  
+  const boxH = 35 + (helpers.length * 8);
   doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(margin, y, contentW, 42, 2, 2, 'S');
-  doc.setFontSize(9);
+  doc.roundedRect(margin, y, contentW, boxH, 2, 2, 'S');
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(60, 60, 60);
-  doc.text(`Concepto: ${serviceCategory} (${hours}h x ${rate.toFixed(2)}\u20ac)`, margin + 8, y + 9);
-  doc.text(`${subtotal.toFixed(2)} \u20ac`, pageW - margin - 8, y + 9, { align: 'right' });
+  
+  // Lead technician line
+  doc.text(`T\u00e9cnico Principal: ${techName} (${hours}h x ${leadRate.toFixed(2)}\u20ac)`, margin + 8, y + 9);
+  doc.text(`${(leadRate * hours).toFixed(2)} \u20ac`, pageW - margin - 8, y + 9, { align: 'right' });
+  
+  // Helpers lines
+  let helperY = y + 17;
+  helpers.forEach(h => {
+    const hRate = parseFloat(h.hourly_rate) || 0;
+    doc.text(`Ayudante: ${h.name} (${hours}h x ${hRate.toFixed(2)}\u20ac)`, margin + 8, helperY);
+    doc.text(`${(hRate * hours).toFixed(2)} \u20ac`, pageW - margin - 8, helperY, { align: 'right' });
+    helperY += 8;
+  });
+
   doc.setDrawColor(240, 240, 240);
-  doc.line(margin + 8, y + 13, pageW - margin - 8, y + 13);
-  doc.text('IVA (21%):', margin + 8, y + 20);
-  doc.text(`${iva.toFixed(2)} \u20ac`, pageW - margin - 8, y + 20, { align: 'right' });
-  doc.line(margin + 8, y + 24, pageW - margin - 8, y + 24);
+  doc.line(margin + 8, helperY - 3, pageW - margin - 8, helperY - 3);
+  
+  doc.setFontSize(9);
+  doc.text('IVA (21%):', margin + 8, helperY + 4);
+  doc.text(`${iva.toFixed(2)} \u20ac`, pageW - margin - 8, helperY + 4, { align: 'right' });
+  
+  doc.line(margin + 8, helperY + 8, pageW - margin - 8, helperY + 8);
+  
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(59, 130, 246);
-  doc.text('TOTAL A PAGAR:', margin + 8, y + 33);
+  doc.text('TOTAL A PAGAR:', margin + 8, helperY + 16);
   doc.setFontSize(12);
-  doc.text(`${total.toFixed(2)} \u20ac`, pageW - margin - 8, y + 33, { align: 'right' });
+  doc.text(`${total.toFixed(2)} \u20ac`, pageW - margin - 8, helperY + 16, { align: 'right' });
 
-  y += 54;
+  y += boxH + 10;
 
   // --- SIGNATURE ---
   doc.setTextColor(100, 116, 139);
@@ -245,7 +271,13 @@ const TechnicianDashboard = ({ user }) => {
         }
       } catch (e) { console.error("Could not fetch profile, using default rate", e); }
 
-      // 2. Generate PDF
+      // 2. Prepare Helper Data
+      const helpersData = selectedHelpers.map(id => {
+        const h = availableTechs.find(t => t.id === id);
+        return { name: h?.name || 'T\u00e9cnico', hourly_rate: h?.hourly_rate || 0 };
+      });
+
+      // 3. Generate PDF
       let pdfBase64 = null;
       try {
         const pdfDoc = generateProfessionalPDF({
@@ -258,14 +290,15 @@ const TechnicianDashboard = ({ user }) => {
           description: acceptModal.description || '',
           signatureUrl: acceptModal.signature,
           estimatedHours: acceptHours,
-          hourlyRate: hourlyRate
+          hourlyRate: hourlyRate,
+          helpers: helpersData
         });
         pdfBase64 = pdfDoc.output('datauristring');
       } catch (pdfErr) {
         console.error("PDF Generation failed", pdfErr);
       }
 
-      // 3. Update status and save PDF
+      // 4. Update status and save PDF
       const res = await fetch(`/api/appointments/${acceptModal.id}/status`, {
         method: 'PATCH',
         headers: { 
