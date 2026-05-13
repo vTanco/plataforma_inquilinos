@@ -80,6 +80,32 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
   const services = ['Fontanería', 'Carpintería', 'Electricidad', 'Pintura', 'Jardinería', 'Humedades'];
   const availableTimes = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
 
+  const [bookedAppointments, setBookedAppointments] = useState([]);
+
+  useEffect(() => {
+    if (step === 3 && formData.technician_id) {
+      fetch(`/api/technicians/${formData.technician_id}/appointments`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setBookedAppointments(data.map(app => new Date(app.appointment_date)));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [step, formData.technician_id]);
+
+  const isTimeBooked = (time) => {
+    if (!selectedDate) return false;
+    const [hours, minutes] = time.split(':');
+    const timeDate = new Date(selectedDate);
+    timeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+    const timeStr = timeDate.toISOString();
+    return bookedAppointments.some(d => d.toISOString() === timeStr);
+  };
+
   useEffect(() => {
     if (step === 2 && formData.service_category) {
       fetch(`/api/technicians?category=${formData.service_category}`, {
@@ -264,24 +290,29 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
             <div style={{ flex: '1 1 200px' }}>
               <label className="input-label" style={{ marginBottom: '12px' }}>Horas disponibles</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '12px' }}>
-                {availableTimes.map(time => (
-                  <button 
-                    key={time}
-                    onClick={() => setSelectedTime(time)}
-                    style={{ 
-                      padding: '12px', 
-                      borderRadius: '8px', 
-                      background: selectedTime === time ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${selectedTime === time ? 'var(--primary)' : 'var(--border)'}`,
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontWeight: selectedTime === time ? 600 : 400,
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {time}
-                  </button>
-                ))}
+                {availableTimes.map(time => {
+                  const booked = isTimeBooked(time);
+                  return (
+                    <button 
+                      key={time}
+                      disabled={booked}
+                      onClick={() => setSelectedTime(time)}
+                      style={{ 
+                        padding: '12px', 
+                        borderRadius: '8px', 
+                        background: booked ? 'rgba(255,255,255,0.02)' : (selectedTime === time ? 'var(--primary)' : 'rgba(255,255,255,0.05)'),
+                        border: `1px solid ${selectedTime === time ? 'var(--primary)' : 'var(--border)'}`,
+                        color: booked ? 'var(--text-muted)' : 'white',
+                        cursor: booked ? 'not-allowed' : 'pointer',
+                        fontWeight: selectedTime === time ? 600 : 400,
+                        transition: 'all 0.2s',
+                        opacity: booked ? 0.5 : 1
+                      }}
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

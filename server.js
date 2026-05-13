@@ -236,6 +236,20 @@ app.get('/api/technicians', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/technicians/:id/appointments', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT appointment_date FROM appointments WHERE technician_id = $1',
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching technician appointments' });
+  }
+});
+
 app.post('/api/appointments', authenticateToken, async (req, res) => {
   const { technician_id, service_category, appointment_date, signature, pdf_document } = req.body;
   try {
