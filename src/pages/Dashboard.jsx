@@ -679,9 +679,10 @@ const TenantDashboard = ({ user }) => {
 
               <div style={{ marginBottom: '12px' }}>
                 <PayPalButtons
-                  style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'donate', height: 45 }}
+                  style={{ layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay', height: 45 }}
                   createOrder={(data, actions) => {
                     return actions.order.create({
+                      intent: 'CAPTURE',
                       purchase_units: [{
                         amount: { value: total.toFixed(2), currency_code: 'EUR' },
                         description: `Donación por servicio de ${paymentModal.service_category}`
