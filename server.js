@@ -33,6 +33,7 @@ pool.connect(async (err, client, release) => {
     try {
       await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS signature TEXT;');
       await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pdf_document TEXT;');
+      await client.query('ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(6,2) DEFAULT 30.0;');
       console.log('Migrations executed successfully');
     } catch (migErr) {
       console.error('Migration failed', migErr);
@@ -92,7 +93,7 @@ app.get('/api/health', (req, res) => {
 
 // Register (Tenant or Technician)
 app.post('/api/auth/register', async (req, res) => {
-  let { name, email, password, role, service_category, phone, description, latitude, longitude, credential } = req.body;
+  let { name, email, password, role, service_category, phone, description, latitude, longitude, credential, hourly_rate } = req.body;
   
   if (credential) {
     try {
@@ -141,8 +142,8 @@ app.post('/api/auth/register', async (req, res) => {
         return res.status(400).json({ error: 'Falta categoría de servicio para el técnico.' });
       }
       await pool.query(
-        'INSERT INTO technician_profiles (user_id, service_category, phone, description) VALUES ($1, $2, $3, $4)',
-        [newUser.id, service_category, phone, description]
+        'INSERT INTO technician_profiles (user_id, service_category, phone, description, hourly_rate) VALUES ($1, $2, $3, $4, $5)',
+        [newUser.id, service_category, phone, description, hourly_rate || 30.0]
       );
     }
 
@@ -216,7 +217,7 @@ app.get('/api/technicians', authenticateToken, async (req, res) => {
     // 2. Query technicians in a 30km radius
     let query = `
       SELECT * FROM (
-        SELECT u.id, u.name, t.service_category, t.description, t.rating, t.reviews_count,
+        SELECT u.id, u.name, t.service_category, t.description, t.rating, t.reviews_count, t.hourly_rate,
         ( 6371 * acos( cos( radians($1) ) * cos( radians( u.latitude ) ) 
         * cos( radians( u.longitude ) - radians($2) ) + sin( radians($1) ) 
         * sin( radians( u.latitude ) ) ) ) AS distance

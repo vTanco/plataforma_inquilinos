@@ -255,6 +255,7 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
                 <div key={tech.id} style={{ padding: '20px', border: '1px solid var(--border)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <h5 style={{ fontSize: '1.2rem', marginBottom: '4px' }}>{tech.name}</h5>
+                    <div style={{ fontSize: '0.95rem', color: 'var(--primary)', fontWeight: 600, marginBottom: '4px' }}>Tarifa: {tech.hourly_rate || '30.00'}€ / hora</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', marginBottom: '8px' }}>
                       <Star fill="currentColor" size={16} /> <span style={{ fontWeight: 600 }}>{tech.rating}</span> <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({tech.reviews_count} opiniones)</span>
                       {tech.distance && <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginLeft: '8px' }}>• A {parseFloat(tech.distance).toFixed(1)} km</span>}
@@ -276,6 +277,7 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
       {step === 2 && selectedTechProfile && (
         <div className="animate-fade-in glass-panel" style={{ background: 'rgba(255,255,255,0.02)' }}>
           <h4 style={{ fontSize: '1.5rem', marginBottom: '8px' }}>Perfil Profesional: {selectedTechProfile.name}</h4>
+          <div style={{ fontSize: '1.1rem', color: 'var(--primary)', fontWeight: 600, marginBottom: '8px' }}>Tarifa: {selectedTechProfile.hourly_rate || '30.00'}€ / hora</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fbbf24', marginBottom: '16px' }}>
             <Star fill="currentColor" size={18} /> <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>{selectedTechProfile.rating}</span> 
             <span style={{ color: 'var(--text-muted)' }}>({selectedTechProfile.reviews_count} reseñas verificadas)</span>
