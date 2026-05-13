@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Calendar as CalendarIcon, Clock, Star, PenTool, CheckCircle, AlertCircle, FileText, User } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
 import ReactCalendar from 'react-calendar';
@@ -53,9 +54,50 @@ const TechnicianDashboard = ({ user }) => {
     return null;
   };
 
+  const syncGoogleCalendar = useGoogleLogin({
+    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+    onSuccess: async (tokenResponse) => {
+      try {
+        const timeMin = new Date().toISOString();
+        const timeMax = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`, {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+        });
+        const data = await res.json();
+        
+        if (!data.items) throw new Error('No items in response');
+
+        const events = data.items.map(item => item.start.dateTime || item.start.date).filter(Boolean);
+        
+        const syncRes = await fetch('/api/appointments/sync', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ events })
+        });
+        
+        if (!syncRes.ok) throw new Error('Error saving sync data');
+
+        alert(`¡Sincronización completada! Se han bloqueado ${events.length} horarios de tu Google Calendar en la plataforma.`);
+        window.location.reload();
+      } catch (err) {
+        console.error(err);
+        alert('Error al sincronizar con Google Calendar');
+      }
+    },
+    onError: () => alert('Fallo al conectar con Google Calendar')
+  });
+
   return (
     <div className="page-container animate-fade-in">
-      <h2 style={{ fontSize: '2rem', marginBottom: '24px' }}>Panel de Técnico: {user.name}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+        <h2 style={{ fontSize: '2rem' }}>Panel de Técnico: {user.name}</h2>
+        <button onClick={() => syncGoogleCalendar()} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', borderColor: '#4285F4', color: '#4285F4', background: 'rgba(66, 133, 244, 0.05)' }}>
+          <CalendarIcon size={18} /> Sincronizar Google Calendar
+        </button>
+      </div>
       
       <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div className="glass-panel" style={{ flex: '1 1 350px' }}>

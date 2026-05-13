@@ -271,7 +271,7 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
     if (req.user.role === 'tenant') {
       query = 'SELECT a.*, u.name as other_party_name FROM appointments a JOIN users u ON a.technician_id = u.id WHERE a.tenant_id = $1 ORDER BY a.appointment_date DESC';
     } else {
-      query = 'SELECT a.*, u.name as other_party_name FROM appointments a JOIN users u ON a.tenant_id = u.id WHERE a.technician_id = $1 ORDER BY a.appointment_date DESC';
+      query = "SELECT a.*, COALESCE(u.name, 'Evento de Google Calendar') as other_party_name FROM appointments a LEFT JOIN users u ON a.tenant_id = u.id WHERE a.technician_id = $1 ORDER BY a.appointment_date DESC";
     }
     const result = await pool.query(query, [req.user.id]);
     res.json(result.rows);
@@ -306,6 +306,27 @@ app.patch('/api/appointments/:id/status', authenticateToken, async (req, res) =>
   } catch (err) {
     console.error('Error updating appointment status:', err);
     res.status(500).json({ error: 'Error actualizando el estado de la cita' });
+  }
+});
+
+app.post('/api/appointments/sync', authenticateToken, async (req, res) => {
+  const { events } = req.body;
+  if (req.user.role !== 'technician') return res.status(403).json({ error: 'Unauthorized' });
+
+  try {
+    // Delete previous synced events to avoid duplicates
+    await pool.query("DELETE FROM appointments WHERE technician_id = $1 AND service_category = 'Google Calendar'", [req.user.id]);
+
+    for (const eventDate of events) {
+      await pool.query(
+        "INSERT INTO appointments (technician_id, service_category, appointment_date, status) VALUES ($1, $2, $3, 'accepted')",
+        [req.user.id, 'Google Calendar', eventDate]
+      );
+    }
+    res.json({ success: true, count: events.length });
+  } catch (err) {
+    console.error('Error syncing events:', err);
+    res.status(500).json({ error: 'Error syncing events' });
   }
 });
 
