@@ -172,6 +172,76 @@ const TechnicianDashboard = ({ user }) => {
           )}
         </div>
       </div>
+
+      {/* Amazon Product Catalog */}
+      <div className="glass-panel" style={{ marginTop: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <h3 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🛒 Catálogo de Productos Profesionales
+          </h3>
+          <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, background: 'rgba(255, 153, 0, 0.15)', color: '#FF9900', border: '1px solid rgba(255, 153, 0, 0.3)' }}>
+            Powered by Amazon
+          </span>
+        </div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px' }}>
+          Herramientas y materiales recomendados para profesionales. Al comprar a través de estos enlaces, apoyas la plataforma VecinosConnect.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+          {[
+            { name: 'Taladro Percutor Bosch Professional', price: '89,99', oldPrice: '119,99', rating: 4.7, reviews: 3847, category: 'Electricidad', badge: 'Más vendido', link: 'https://amzn.to/vc-bosch-taladro' },
+            { name: 'Llave Inglesa Ajustable Stanley 250mm', price: '14,95', oldPrice: '19,99', rating: 4.5, reviews: 2156, category: 'Fontanería', badge: null, link: 'https://amzn.to/vc-stanley-llave' },
+            { name: 'Kit Soldadura Estaño 60W Profesional', price: '24,99', oldPrice: '34,99', rating: 4.3, reviews: 1423, category: 'Electricidad', badge: null, link: 'https://amzn.to/vc-soldadura-kit' },
+            { name: 'Pistola de Silicona Wolfcraft MG 310', price: '12,49', oldPrice: '16,99', rating: 4.6, reviews: 5231, category: 'Humedades', badge: 'Amazon Choice', link: 'https://amzn.to/vc-wolfcraft-silicona' },
+            { name: 'Set de Brochas Pintor Harris 5 uds', price: '18,90', oldPrice: '24,50', rating: 4.4, reviews: 987, category: 'Pintura', badge: null, link: 'https://amzn.to/vc-harris-brochas' },
+            { name: 'Sierra Circular Makita 190mm 1200W', price: '129,00', oldPrice: '159,00', rating: 4.8, reviews: 4102, category: 'Carpintería', badge: 'Más vendido', link: 'https://amzn.to/vc-makita-sierra' },
+            { name: 'Medidor Láser Bosch 50m GLM 50-27', price: '94,99', oldPrice: '129,99', rating: 4.7, reviews: 2890, category: 'General', badge: 'Amazon Choice', link: 'https://amzn.to/vc-bosch-medidor' },
+            { name: 'Guantes Trabajo Ansell HyFlex Talla L', price: '8,99', oldPrice: '12,99', rating: 4.5, reviews: 6540, category: 'General', badge: null, link: 'https://amzn.to/vc-ansell-guantes' },
+          ].map((product, i) => (
+            <a key={i} href={product.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: '14px',
+                border: '1px solid var(--border)',
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                cursor: 'pointer',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'rgba(255, 153, 0, 0.4)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(255, 153, 0, 0.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                {product.badge && (
+                  <span style={{ position: 'absolute', top: '12px', right: '12px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.65rem', fontWeight: 700, background: product.badge === 'Más vendido' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 153, 0, 0.15)', color: product.badge === 'Más vendido' ? '#ef4444' : '#FF9900', border: `1px solid ${product.badge === 'Más vendido' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 153, 0, 0.3)'}` }}>
+                    {product.badge}
+                  </span>
+                )}
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>{product.category}</span>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '12px', lineHeight: 1.4, flexGrow: 1 }}>{product.name}</h4>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '1px' }}>
+                    {[1,2,3,4,5].map(s => (
+                      <Star key={s} size={12} fill={s <= Math.floor(product.rating) ? '#fbbf24' : 'transparent'} color="#fbbf24" />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({product.reviews.toLocaleString()})</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                  <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#FF9900' }}>{product.price}€</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textDecoration: 'line-through' }}>{product.oldPrice}€</span>
+                </div>
+                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#00A8E1', padding: '2px 6px', background: 'rgba(0, 168, 225, 0.1)', borderRadius: '4px' }}>Prime</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Envío gratis</span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
