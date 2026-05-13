@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Calendar as CalendarIcon, Clock, Star, PenTool, CheckCircle, AlertCircle, FileText, User } from 'lucide-react';
+import { LogOut, Calendar as CalendarIcon, Clock, Star, PenTool, CheckCircle, AlertCircle, FileText, User, Trash2 } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { PayPalButtons } from '@paypal/react-paypal-js';
 import SignatureCanvas from 'react-signature-canvas';
@@ -79,6 +79,22 @@ const TechnicianDashboard = ({ user }) => {
         setAppointments(appointments.map(app => app.id === id ? { ...app, status: newStatus } : app));
       } catch (err) {
         alert('Hubo un error al actualizar la cita');
+        console.error(err);
+      }
+    }
+  };
+
+  const deleteAppointment = async (id) => {
+    if (window.confirm('¿Eliminar esta cita permanentemente de tu agenda?')) {
+      try {
+        const res = await fetch(`/api/appointments/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (!res.ok) throw new Error('Error al eliminar');
+        setAppointments(appointments.filter(app => app.id !== id));
+      } catch (err) {
+        alert('Hubo un error al eliminar la cita');
         console.error(err);
       }
     }
@@ -201,6 +217,9 @@ const TechnicianDashboard = ({ user }) => {
                         </button>
                       </div>
                     )}
+                    <button onClick={() => deleteAppointment(app.id)} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444', marginTop: '8px' }}>
+                      <Trash2 size={14} /> Eliminar
+                    </button>
                   </div>
                 </div>
               ))}
@@ -704,6 +723,22 @@ const TenantDashboard = ({ user }) => {
     }
   };
 
+  const deleteAppointment = async (id) => {
+    if (window.confirm('¿Eliminar esta contratación permanentemente?')) {
+      try {
+        const res = await fetch(`/api/appointments/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (!res.ok) throw new Error('Error al eliminar');
+        setAppointments(appointments.filter(app => app.id !== id));
+      } catch (err) {
+        alert('Hubo un error al eliminar la cita');
+        console.error(err);
+      }
+    }
+  };
+
   if (isHiring) {
     return (
       <div className="page-container">
@@ -789,6 +824,9 @@ const TenantDashboard = ({ user }) => {
                   )}
                   <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#ef4444', color: '#ef4444' }}>
                     <AlertCircle size={16} /> Abrir Incidencia
+                  </button>
+                  <button onClick={() => deleteAppointment(app.id)} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#6b7280', color: '#6b7280' }}>
+                    <Trash2 size={16} /> Eliminar
                   </button>
                 </div>
               </div>
