@@ -51,61 +51,179 @@ const HomePage = () => {
     { icon: <CloudRain />, name: "Humedades", desc: "Tratamientos anti-humedad y filtraciones." },
   ];
 
-  return (
-    <div className="page-container animate-fade-in">
-      <div className="hero-section">
-        <h1 className="hero-title">Tu Comunidad, <span className="text-gradient">Mejor Atendida</span></h1>
-        <p className="hero-subtitle">
-          La plataforma integral para inquilinos y técnicos. Contrata servicios para tu hogar o únete como profesional para ofrecer tu talento.
-        </p>
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-          <Link to="/services" className="btn btn-primary">Explorar Servicios</Link>
-          <Link to="/technicians/register" className="btn btn-outline">Soy Técnico</Link>
-        </div>
-      </div>
+  const stats = [
+    { value: 2500, suffix: '+', label: 'Servicios completados' },
+    { value: 150, suffix: '+', label: 'Técnicos verificados' },
+    { value: 98, suffix: '%', label: 'Clientes satisfechos' },
+    { value: 24, suffix: 'h', label: 'Tiempo medio de respuesta' },
+  ];
 
-      <div style={{ marginTop: '40px' }}>
-        <div className="flex-between">
-          <h2 style={{ fontSize: '2rem', fontWeight: 600 }}>Servicios Disponibles</h2>
-          <Link to="/services" style={{ color: 'var(--text-muted)' }}>Ver todos &rarr;</Link>
+  const steps = [
+    { num: '01', title: 'Describe tu problema', desc: 'Selecciona el tipo de servicio que necesitas y describe los detalles del trabajo.' },
+    { num: '02', title: 'Elige tu técnico', desc: 'Compara perfiles, valoraciones y tarifas de profesionales cercanos a tu zona.' },
+    { num: '03', title: 'Agenda tu cita', desc: 'Selecciona el día y hora que mejor te convenga en tiempo real.' },
+    { num: '04', title: 'Paga de forma segura', desc: 'Realiza el pago con PayPal después de que el técnico acepte tu solicitud.' },
+  ];
+
+  const [scrollY, setScrollY] = React.useState(0);
+  const [visibleSections, setVisibleSections] = React.useState({});
+  const [counters, setCounters] = React.useState(stats.map(() => 0));
+  const [countersStarted, setCountersStarted] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setVisibleSections(prev => ({ ...prev, [entry.target.id]: true }));
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('[data-scroll]').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  React.useEffect(() => {
+    if (visibleSections['stats-section'] && !countersStarted) {
+      setCountersStarted(true);
+      stats.forEach((stat, i) => {
+        let start = 0;
+        const end = stat.value;
+        const duration = 2000;
+        const stepTime = duration / end;
+        const timer = setInterval(() => {
+          start += Math.ceil(end / 60);
+          if (start >= end) { start = end; clearInterval(timer); }
+          setCounters(prev => { const n = [...prev]; n[i] = start; return n; });
+        }, stepTime);
+      });
+    }
+  }, [visibleSections]);
+
+  return (
+    <div style={{ overflow: 'hidden' }}>
+      {/* Floating 3D orbs */}
+      <div className="orb orb-1" style={{ transform: `translate3d(${scrollY * 0.05}px, ${scrollY * -0.08}px, 0)` }}></div>
+      <div className="orb orb-2" style={{ transform: `translate3d(${scrollY * -0.04}px, ${scrollY * -0.06}px, 0)` }}></div>
+      <div className="orb orb-3" style={{ transform: `translate3d(${scrollY * 0.03}px, ${scrollY * -0.04}px, 0)` }}></div>
+
+      {/* HERO */}
+      <section className="hero-full" style={{ transform: `translateY(${scrollY * 0.3}px)`, opacity: Math.max(0, 1 - scrollY / 700) }}>
+        <div className="hero-content">
+          <div className="hero-badge">🏠 Plataforma #1 en servicios del hogar</div>
+          <h1 className="hero-title-xl">
+            Tu Comunidad,<br/><span className="text-gradient-xl">Mejor Atendida</span>
+          </h1>
+          <p className="hero-sub-xl">
+            Conectamos inquilinos con los mejores técnicos profesionales de tu zona. Contrata, gestiona y paga servicios para tu hogar de forma segura y transparente.
+          </p>
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link to="/register" className="btn btn-primary btn-lg">Empezar Ahora</Link>
+            <Link to="/technicians/register" className="btn btn-outline btn-lg">Soy Profesional</Link>
+          </div>
+          <div className="scroll-indicator">
+            <span>Desliza para descubrir</span>
+            <div className="scroll-arrow"></div>
+          </div>
         </div>
-        
-        <div className="services-grid stagger-1">
-          {services.map((srv, idx) => (
-            <div key={idx} className="glass-panel service-card">
-              <div className="service-icon">
-                {srv.icon}
+      </section>
+
+      {/* STATS */}
+      <section id="stats-section" data-scroll className={`stats-strip ${visibleSections['stats-section'] ? 'visible' : ''}`}>
+        {stats.map((stat, i) => (
+          <div key={i} className="stat-item">
+            <span className="stat-value">{counters[i]}{stat.suffix}</span>
+            <span className="stat-label">{stat.label}</span>
+          </div>
+        ))}
+      </section>
+
+      {/* HOW IT WORKS - Scrollytelling */}
+      <section id="how-section" data-scroll className="page-container" style={{ paddingTop: '120px', paddingBottom: '120px' }}>
+        <div className={`section-header ${visibleSections['how-section'] ? 'visible' : ''}`}>
+          <span className="section-tag">¿Cómo funciona?</span>
+          <h2 className="section-title">Cuatro pasos para tu <span className="text-gradient">tranquilidad</span></h2>
+        </div>
+        <div className="steps-timeline">
+          {steps.map((step, i) => (
+            <div key={i} id={`step-${i}`} data-scroll className={`step-card ${visibleSections[`step-${i}`] ? 'visible' : ''}`} style={{ animationDelay: `${i * 0.15}s` }}>
+              <div className="step-num">{step.num}</div>
+              <div className="step-line"></div>
+              <div className="step-body">
+                <h3 className="step-title">{step.title}</h3>
+                <p className="step-desc">{step.desc}</p>
               </div>
-              <h3 className="service-title">{srv.name}</h3>
-              <p className="service-desc">{srv.desc}</p>
-              <button className="btn btn-outline" style={{ width: '100%' }}>Solicitar Presupuesto</button>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="glass-panel stagger-2" style={{ marginTop: '80px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '40px' }}>
-        <div style={{ maxWidth: '600px' }}>
-          <h2 style={{ fontSize: '2rem', marginBottom: '16px' }}>¿Eres un profesional?</h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '1.1rem' }}>
-            Únete a nuestra red de técnicos de confianza. Date de alta, recibe solicitudes de trabajo de las comunidades de vecinos y gestiona tus citas fácilmente.
-          </p>
-          <ul style={{ listStyle: 'none', marginBottom: '32px', color: 'var(--text-muted)' }}>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <UserPlus size={20} style={{ color: 'var(--primary)' }} /> Perfil profesional personalizado
-            </li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <CalendarCheck size={20} style={{ color: 'var(--primary)' }} /> Gestión de agenda y citas
-            </li>
-          </ul>
-          <Link to="/technicians/register" className="btn btn-primary">Crear cuenta de técnico</Link>
+      {/* SERVICES */}
+      <section id="services-section" data-scroll className="page-container" style={{ paddingBottom: '120px' }}>
+        <div className={`section-header ${visibleSections['services-section'] ? 'visible' : ''}`}>
+          <span className="section-tag">Nuestros Servicios</span>
+          <h2 className="section-title">Todo lo que tu hogar <span className="text-gradient">necesita</span></h2>
         </div>
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-           <div style={{ width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-             <Wrench size={120} style={{ color: 'var(--primary)', opacity: 0.8 }} />
-           </div>
+        <div className="services-grid-new">
+          {services.map((srv, idx) => (
+            <div key={idx} id={`srv-${idx}`} data-scroll className={`service-card-new ${visibleSections[`srv-${idx}`] ? 'visible' : ''}`} style={{ animationDelay: `${idx * 0.1}s` }}>
+              <div className="service-icon-new">{srv.icon}</div>
+              <h3 className="service-title-new">{srv.name}</h3>
+              <p className="service-desc-new">{srv.desc}</p>
+              <Link to="/register" className="service-link">Solicitar →</Link>
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
+
+      {/* CTA TECHNICIAN */}
+      <section id="cta-section" data-scroll className={`cta-section ${visibleSections['cta-section'] ? 'visible' : ''}`}>
+        <div className="cta-inner">
+          <div className="cta-text">
+            <span className="section-tag" style={{ marginBottom: '16px' }}>Para Profesionales</span>
+            <h2 style={{ fontSize: '2.5rem', fontWeight: 700, marginBottom: '16px', lineHeight: 1.2 }}>¿Eres un profesional del hogar?</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '1.15rem', marginBottom: '32px', maxWidth: '500px' }}>
+              Únete a nuestra red de técnicos de confianza. Recibe solicitudes, gestiona tu calendario y cobra de forma segura.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '40px' }}>
+              {[
+                { icon: <UserPlus size={20} />, text: 'Perfil profesional personalizado' },
+                { icon: <CalendarCheck size={20} />, text: 'Gestión de agenda y citas en tiempo real' },
+                { icon: <Zap size={20} />, text: 'Pagos seguros con PayPal integrado' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)' }}>
+                  <div style={{ color: 'var(--primary)' }}>{item.icon}</div>
+                  {item.text}
+                </div>
+              ))}
+            </div>
+            <Link to="/technicians/register" className="btn btn-primary btn-lg">Crear Cuenta de Técnico</Link>
+          </div>
+          <div className="cta-visual">
+            <div className="cta-3d-card">
+              <Wrench size={80} strokeWidth={1.2} />
+              <div className="cta-3d-ring"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="landing-footer">
+        <div className="footer-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Home style={{ color: 'var(--primary)' }} />
+            <span style={{ fontWeight: 700, fontSize: '1.2rem' }}>Vecinos<span className="text-gradient">Connect</span></span>
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>© 2026 VecinosConnect. Todos los derechos reservados.</p>
+        </div>
+      </footer>
     </div>
   );
 };
