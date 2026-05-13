@@ -234,26 +234,36 @@ const TechnicianDashboard = ({ user }) => {
     if (!acceptModal) return;
     try {
       // 1. Fetch technician profile to get the hourly rate
-      const profileRes = await fetch('/api/technician-profile', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      const profileData = await profileRes.json();
-      const hourlyRate = profileData.hourly_rate || 30;
+      let hourlyRate = 30;
+      try {
+        const profileRes = await fetch('/api/technician-profile', {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          hourlyRate = profileData.hourly_rate || 30;
+        }
+      } catch (e) { console.error("Could not fetch profile, using default rate", e); }
 
       // 2. Generate PDF
-      const pdfDoc = generateProfessionalPDF({
-        tenantName: acceptModal.other_party_name,
-        tenantEmail: acceptModal.other_party_email,
-        techName: user.name,
-        techEmail: user.email,
-        serviceCategory: acceptModal.service_category,
-        appointmentDate: acceptModal.appointment_date,
-        description: acceptModal.description,
-        signatureUrl: acceptModal.signature,
-        estimatedHours: acceptHours,
-        hourlyRate: hourlyRate
-      });
-      const pdfBase64 = pdfDoc.output('datauristring');
+      let pdfBase64 = null;
+      try {
+        const pdfDoc = generateProfessionalPDF({
+          tenantName: acceptModal.other_party_name || 'Inquilino',
+          tenantEmail: acceptModal.other_party_email || '',
+          techName: user.name,
+          techEmail: user.email,
+          serviceCategory: acceptModal.service_category,
+          appointmentDate: acceptModal.appointment_date,
+          description: acceptModal.description || '',
+          signatureUrl: acceptModal.signature,
+          estimatedHours: acceptHours,
+          hourlyRate: hourlyRate
+        });
+        pdfBase64 = pdfDoc.output('datauristring');
+      } catch (pdfErr) {
+        console.error("PDF Generation failed", pdfErr);
+      }
 
       // 3. Update status and save PDF
       const res = await fetch(`/api/appointments/${acceptModal.id}/status`, {
@@ -275,7 +285,7 @@ const TechnicianDashboard = ({ user }) => {
       setAppointments(appointments.map(app => app.id === acceptModal.id ? updatedApp : app));
       setAcceptModal(null);
     } catch (err) {
-      alert('Hubo un error al aceptar la cita y generar el recibo');
+      alert('Hubo un error al aceptar la cita');
       console.error(err);
     }
   };

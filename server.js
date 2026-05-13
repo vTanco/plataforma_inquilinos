@@ -220,6 +220,22 @@ app.get('/api/technicians/public', async (req, res) => {
   }
 });
 
+app.get('/api/technician-profile', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM technician_profiles WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Perfil no encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener el perfil del técnico' });
+  }
+});
+
 app.get('/api/technicians', authenticateToken, async (req, res) => {
   const { category } = req.query;
   try {
