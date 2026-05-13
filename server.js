@@ -302,7 +302,7 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
 
 app.patch('/api/appointments/:id/status', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { status, estimated_hours } = req.body;
+  const { status, estimated_hours, helpers } = req.body;
   try {
     if (!['accepted', 'rejected', 'cancelled', 'paid'].includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
@@ -326,6 +326,18 @@ app.patch('/api/appointments/:id/status', authenticateToken, async (req, res) =>
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
     }
+
+    // If accepting and helpers are selected, create helper appointments
+    if (status === 'accepted' && helpers && helpers.length > 0) {
+      const appointment = result.rows[0];
+      for (const helperId of helpers) {
+        await pool.query(
+          "INSERT INTO appointments (tenant_id, technician_id, service_category, appointment_date, status, estimated_hours, description) VALUES ($1, $2, $3, $4, 'pending', $5, $6)",
+          [appointment.tenant_id, helperId, appointment.service_category, appointment.appointment_date, parseInt(estimated_hours) || 1, `Solicitud de ayuda de ${req.user.name || 'otro técnico'} para: ${appointment.description || appointment.service_category}`]
+        );
+      }
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Error updating appointment status:', err);

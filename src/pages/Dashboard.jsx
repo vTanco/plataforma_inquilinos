@@ -10,6 +10,11 @@ import 'react-calendar/dist/Calendar.css';
 
 const TechnicianDashboard = ({ user }) => {
   const [appointments, setAppointments] = useState([]);
+  const [acceptModal, setAcceptModal] = useState(null);
+  const [acceptHours, setAcceptHours] = useState(1);
+  const [needHelpers, setNeedHelpers] = useState(false);
+  const [availableTechs, setAvailableTechs] = useState([]);
+  const [selectedHelpers, setSelectedHelpers] = useState([]);
 
   useEffect(() => {
     fetch('/api/appointments', {
@@ -20,16 +25,47 @@ const TechnicianDashboard = ({ user }) => {
       .catch(err => console.error(err));
   }, []);
 
-  const updateStatus = async (id, newStatus) => {
-    let msg = newStatus === 'accepted' ? '¿Aceptar esta cita?' : (newStatus === 'rejected' ? '¿Rechazar esta cita?' : '¿Anular esta cita?');
-    if (window.confirm(msg)) {
-      let estimated_hours = 1;
-      if (newStatus === 'accepted') {
-        const inputHours = window.prompt('¿Cuántas horas estimas que durará este trabajo? (Bloqueará tu calendario)', '1');
-        if (inputHours === null) return;
-        estimated_hours = parseInt(inputHours) || 1;
-      }
+  const openAcceptModal = (app) => {
+    setAcceptModal(app);
+    setAcceptHours(1);
+    setNeedHelpers(false);
+    setSelectedHelpers([]);
+    fetch('/api/technicians/public')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setAvailableTechs(data.filter(t => t.id !== user.id));
+      })
+      .catch(console.error);
+  };
 
+  const confirmAccept = async () => {
+    if (!acceptModal) return;
+    try {
+      const res = await fetch(`/api/appointments/${acceptModal.id}/status`, {
+        method: 'PATCH',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'accepted', estimated_hours: acceptHours, helpers: selectedHelpers })
+      });
+      if (!res.ok) throw new Error('Error al actualizar');
+      setAppointments(appointments.map(app => app.id === acceptModal.id ? { ...app, status: 'accepted', estimated_hours: acceptHours } : app));
+      setAcceptModal(null);
+    } catch (err) {
+      alert('Hubo un error al actualizar la cita');
+      console.error(err);
+    }
+  };
+
+  const toggleHelper = (techId) => {
+    setSelectedHelpers(prev => prev.includes(techId) ? prev.filter(id => id !== techId) : [...prev, techId]);
+  };
+
+  const updateStatus = async (id, newStatus) => {
+    if (newStatus === 'accepted') return;
+    let msg = newStatus === 'rejected' ? '¿Rechazar esta cita?' : '¿Anular esta cita?';
+    if (window.confirm(msg)) {
       try {
         const res = await fetch(`/api/appointments/${id}/status`, {
           method: 'PATCH',
@@ -37,10 +73,10 @@ const TechnicianDashboard = ({ user }) => {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ status: newStatus, estimated_hours })
+          body: JSON.stringify({ status: newStatus })
         });
         if (!res.ok) throw new Error('Error al actualizar');
-        setAppointments(appointments.map(app => app.id === id ? { ...app, status: newStatus, estimated_hours } : app));
+        setAppointments(appointments.map(app => app.id === id ? { ...app, status: newStatus } : app));
       } catch (err) {
         alert('Hubo un error al actualizar la cita');
         console.error(err);
@@ -157,7 +193,7 @@ const TechnicianDashboard = ({ user }) => {
                     )}
                     {app.status === 'pending' && (
                       <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                        <button onClick={() => updateStatus(app.id, 'accepted')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#22c55e', color: '#22c55e' }}>
+                        <button onClick={() => openAcceptModal(app)} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#22c55e', color: '#22c55e' }}>
                           Aceptar
                         </button>
                         <button onClick={() => updateStatus(app.id, 'rejected')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
@@ -172,6 +208,66 @@ const TechnicianDashboard = ({ user }) => {
           )}
         </div>
       </div>
+      {/* Accept Modal */}
+      {acceptModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setAcceptModal(null)}>
+          <div className="glass-panel animate-fade-in" style={{ maxWidth: '560px', width: '90%', margin: 0, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '20px' }}>✅ Aceptar Trabajo</h3>
+
+            <div style={{ marginBottom: '20px', padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <p style={{ fontSize: '0.95rem', marginBottom: '4px' }}><strong>{acceptModal.service_category}</strong> — {acceptModal.other_party_name}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{new Date(acceptModal.appointment_date).toLocaleString()}</p>
+              {acceptModal.description && <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '8px', fontStyle: 'italic' }}>"{acceptModal.description}"</p>}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Horas estimadas de trabajo</label>
+              <input type="number" min="1" max="24" value={acceptHours} onChange={e => setAcceptHours(parseInt(e.target.value) || 1)} className="input-field" style={{ maxWidth: '120px' }} />
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '6px' }}>Se bloquearán {acceptHours} hora(s) en tu calendario.</p>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px 16px', borderRadius: '12px', border: `1px solid ${needHelpers ? 'var(--primary)' : 'var(--border)'}`, background: needHelpers ? 'rgba(59,130,246,0.08)' : 'transparent', transition: 'all 0.2s' }}>
+                <input type="checkbox" checked={needHelpers} onChange={e => { setNeedHelpers(e.target.checked); if (!e.target.checked) setSelectedHelpers([]); }} style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }} />
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Necesito personal extra</span>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px' }}>Selecciona técnicos de la plataforma para que te ayuden</p>
+                </div>
+              </label>
+            </div>
+
+            {needHelpers && (
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Selecciona ayudantes ({selectedHelpers.length} seleccionados)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {availableTechs.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay otros técnicos disponibles.</p>
+                  ) : availableTechs.map(tech => (
+                    <div key={tech.id} onClick={() => toggleHelper(tech.id)} style={{ padding: '12px 16px', borderRadius: '12px', border: `1px solid ${selectedHelpers.includes(tech.id) ? 'var(--primary)' : 'var(--border)'}`, background: selectedHelpers.includes(tech.id) ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{tech.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(139,92,246,0.12)', color: '#a78bfa' }}>{tech.service_category}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>⭐ {parseFloat(tech.rating || 0).toFixed(1)}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{tech.hourly_rate || 30}€/h</span>
+                        </div>
+                      </div>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '6px', border: `2px solid ${selectedHelpers.includes(tech.id) ? 'var(--primary)' : 'var(--border)'}`, background: selectedHelpers.includes(tech.id) ? 'var(--primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0 }}>
+                        {selectedHelpers.includes(tech.id) && <CheckCircle size={14} color="white" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => setAcceptModal(null)} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
+              <button onClick={confirmAccept} className="btn btn-primary" style={{ flex: 1 }}>Aceptar Trabajo</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Amazon Product Catalog */}
       <div className="glass-panel" style={{ marginTop: '32px' }}>
