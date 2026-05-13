@@ -99,6 +99,26 @@ export const Register = ({ role = 'tenant' }) => {
     service_category: '', phone: '', description: '' 
   });
   const [error, setError] = useState('');
+  const [address, setAddress] = useState('');
+  const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
+
+  const verifyAddress = async () => {
+    if (!address) return;
+    setIsVerifyingAddress(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setFormData({ ...formData, latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) });
+      } else {
+        alert('No pudimos encontrar esa dirección. Por favor, sé más específico (Ej: "Calle Gran Vía 1, Madrid").');
+      }
+    } catch (err) {
+      alert('Error al verificar la dirección.');
+    } finally {
+      setIsVerifyingAddress(false);
+    }
+  };
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -218,8 +238,22 @@ export const Register = ({ role = 'tenant' }) => {
             <label className="input-label">Ubicación (Requerida para buscar servicios a menos de 30km)</label>
             {formData.latitude && formData.longitude ? (
                <div style={{ padding: '12px', background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', borderRadius: '12px', border: '1px solid rgba(34, 197, 94, 0.2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 <MapPin size={20} /> Ubicación registrada correctamente
+                 <MapPin size={20} /> {isTechnician ? 'Dirección validada correctamente' : 'Ubicación registrada correctamente'}
                </div>
+            ) : isTechnician ? (
+              <div>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Ej: Calle Alcalá 12, Madrid"
+                  value={address} 
+                  onChange={(e) => setAddress(e.target.value)} 
+                  style={{ marginBottom: '8px', paddingLeft: '12px' }}
+                />
+                <button type="button" onClick={verifyAddress} className="btn btn-outline" style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)' }} disabled={isVerifyingAddress || !address}>
+                  <MapPin size={20} /> {isVerifyingAddress ? 'Verificando...' : 'Verificar Dirección'}
+                </button>
+              </div>
             ) : (
               <button type="button" onClick={() => {
                 if (navigator.geolocation) {
