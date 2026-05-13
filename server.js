@@ -280,6 +280,27 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
   }
 });
 
+app.patch('/api/appointments/:id/cancel', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    let query = '';
+    if (req.user.role === 'tenant') {
+      query = "UPDATE appointments SET status = 'cancelled' WHERE id = $1 AND tenant_id = $2 RETURNING *";
+    } else {
+      query = "UPDATE appointments SET status = 'cancelled' WHERE id = $1 AND technician_id = $2 RETURNING *";
+    }
+    const result = await pool.query(query, [id, req.user.id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error cancelling appointment:', err);
+    res.status(500).json({ error: 'Error cancelando la cita' });
+  }
+});
+
 // Serve static files in production
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
