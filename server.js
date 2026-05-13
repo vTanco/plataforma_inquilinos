@@ -37,6 +37,7 @@ pool.connect(async (err, client, release) => {
       
       // Auto-migrate to add estimated_hours if it doesn't exist
       await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS estimated_hours INTEGER DEFAULT 1;');
+      await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS description TEXT;');
       console.log('Migrations executed successfully');
     } catch (migErr) {
       console.error('Migration failed', migErr);
@@ -255,11 +256,11 @@ app.get('/api/technicians/:id/appointments', authenticateToken, async (req, res)
 });
 
 app.post('/api/appointments', authenticateToken, async (req, res) => {
-  const { technician_id, service_category, appointment_date, signature, pdf_document } = req.body;
+  const { technician_id, service_category, appointment_date, signature, pdf_document, description } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO appointments (tenant_id, technician_id, service_category, appointment_date, signature, pdf_document) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [req.user.id, technician_id, service_category, appointment_date, signature, pdf_document]
+      'INSERT INTO appointments (tenant_id, technician_id, service_category, appointment_date, signature, pdf_document, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [req.user.id, technician_id, service_category, appointment_date, signature, pdf_document, description]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -272,7 +273,7 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
   try {
     let query = '';
     if (req.user.role === 'tenant') {
-      query = 'SELECT a.*, u.name as other_party_name FROM appointments a JOIN users u ON a.technician_id = u.id WHERE a.tenant_id = $1 ORDER BY a.appointment_date DESC';
+      query = 'SELECT a.*, u.name as other_party_name, tp.hourly_rate FROM appointments a JOIN users u ON a.technician_id = u.id LEFT JOIN technician_profiles tp ON u.id = tp.user_id WHERE a.tenant_id = $1 ORDER BY a.appointment_date DESC';
     } else {
       query = "SELECT a.*, COALESCE(u.name, 'Evento de Google Calendar') as other_party_name FROM appointments a LEFT JOIN users u ON a.tenant_id = u.id WHERE a.technician_id = $1 ORDER BY a.appointment_date DESC";
     }

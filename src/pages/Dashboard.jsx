@@ -137,6 +137,11 @@ const TechnicianDashboard = ({ user }) => {
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Clock size={16} /> {new Date(app.appointment_date).toLocaleString()}
                     </p>
+                    {app.description && (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '6px', padding: '8px 12px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: '8px', borderLeft: '3px solid var(--accent)' }}>
+                        <strong style={{ color: 'var(--text)' }}>Comentario del cliente:</strong> {app.description}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' || app.status === 'rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' || app.status === 'rejected' ? '#ef4444' : '#22c55e'), display: 'inline-block', marginBottom: '8px' }}>
@@ -176,7 +181,8 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
     service_category: '',
     technician_id: null,
     appointment_date: '',
-    signature: ''
+    signature: '',
+    description: ''
   });
   const [technicians, setTechnicians] = useState([]);
   const [selectedTechProfile, setSelectedTechProfile] = useState(null);
@@ -323,7 +329,7 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
       </div>
 
       <div style={{ display: 'flex', marginBottom: '32px', gap: '8px' }}>
-        {[1, 2, 3, 4].map(s => (
+        {[1, 2, 3, 4, 5].map(s => (
           <div key={s} style={{ flex: 1, height: '4px', borderRadius: '2px', background: s <= step ? 'var(--primary)' : 'var(--border)' }} />
         ))}
       </div>
@@ -452,7 +458,25 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
 
       {step === 4 && (
         <div className="animate-fade-in">
-          <h4 style={{ marginBottom: '16px' }}>4. Firma de Confirmación</h4>
+          <h4 style={{ marginBottom: '16px' }}>4. Describe el servicio que necesitas</h4>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Proporciona detalles sobre el problema o trabajo a realizar. Esto ayudará al técnico a estimar el tiempo necesario.</p>
+          <textarea 
+            className="input-field" 
+            style={{ minHeight: '150px', paddingLeft: '16px', paddingTop: '12px', resize: 'vertical' }} 
+            placeholder="Ej: Tengo una fuga en la tubería del baño principal. El grifo gotea constantemente desde hace una semana..." 
+            value={formData.description} 
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+          />
+          <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
+            <button onClick={handlePrev} className="btn btn-outline">Atrás</button>
+            <button onClick={handleNext} disabled={!formData.description.trim()} className="btn btn-primary">Continuar</button>
+          </div>
+        </div>
+      )}
+
+      {step === 5 && (
+        <div className="animate-fade-in">
+          <h4 style={{ marginBottom: '16px' }}>5. Firma de Confirmación</h4>
           <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Por favor, firma abajo para confirmar la contratación. Al finalizar, se descargará tu recibo en PDF.</p>
           <div style={{ border: '1px solid var(--border)', borderRadius: '12px', background: '#fff', overflow: 'hidden' }}>
             <SignatureCanvas 
@@ -478,6 +502,7 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
 const TenantDashboard = ({ user }) => {
   const [appointments, setAppointments] = useState([]);
   const [isHiring, setIsHiring] = useState(false);
+  const [paymentModal, setPaymentModal] = useState(null);
 
   const fetchAppointments = () => {
     fetch('/api/appointments', {
@@ -591,7 +616,7 @@ const TenantDashboard = ({ user }) => {
                     </button>
                   )}
                   {app.status === 'accepted' && (
-                    <button onClick={() => window.open(`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=pagos@vecinosconnect.com&item_name=Servicio de ${app.service_category}&currency_code=EUR`, '_blank')} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', background: '#0070ba', borderColor: '#0070ba', color: 'white' }}>
+                    <button onClick={() => setPaymentModal(app)} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', background: '#0070ba', borderColor: '#0070ba', color: 'white' }}>
                       Pagar con PayPal
                     </button>
                   )}
@@ -605,6 +630,63 @@ const TenantDashboard = ({ user }) => {
         )}
         </div>
       </div>
+
+      {paymentModal && (() => {
+        const rate = parseFloat(paymentModal.hourly_rate) || 30;
+        const hours = paymentModal.estimated_hours || 1;
+        const subtotal = rate * hours;
+        const iva = subtotal * 0.21;
+        const total = subtotal + iva;
+        const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=pagos@vecinosconnect.com&item_name=Servicio de ${paymentModal.service_category}&amount=${total.toFixed(2)}&currency_code=EUR`;
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setPaymentModal(null)}>
+            <div className="glass-panel animate-fade-in" style={{ maxWidth: '480px', width: '90%', margin: '0' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ fontSize: '1.4rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText className="text-primary" /> Desglose de Pago
+              </h3>
+
+              <div style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <p style={{ marginBottom: '8px', fontSize: '0.95rem' }}><strong>Servicio:</strong> {paymentModal.service_category}</p>
+                <p style={{ marginBottom: '8px', fontSize: '0.95rem' }}><strong>Técnico:</strong> {paymentModal.other_party_name}</p>
+                <p style={{ fontSize: '0.95rem' }}><strong>Fecha:</strong> {new Date(paymentModal.appointment_date).toLocaleString()}</p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Tarifa por hora</span>
+                  <span>{rate.toFixed(2)} €</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Horas estimadas</span>
+                  <span>× {hours}</span>
+                </div>
+                <div style={{ height: '1px', background: 'var(--border)' }}></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Subtotal</span>
+                  <span>{subtotal.toFixed(2)} €</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>IVA (21%)</span>
+                  <span>{iva.toFixed(2)} €</span>
+                </div>
+                <div style={{ height: '1px', background: 'var(--border)' }}></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 700 }}>
+                  <span>Total</span>
+                  <span style={{ color: 'var(--primary)' }}>{total.toFixed(2)} €</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={() => setPaymentModal(null)} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
+                <button onClick={() => window.open(paypalUrl, '_blank')} className="btn btn-primary" style={{ flex: 1, background: '#0070ba', borderColor: '#0070ba' }}>
+                  Pagar {total.toFixed(2)} € con PayPal
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
