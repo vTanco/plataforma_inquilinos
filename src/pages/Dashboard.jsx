@@ -454,19 +454,185 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
 
   const generatePDF = (signatureUrl) => {
     const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.text('Recibo de Contratación - VecinosConnect', 20, 20);
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentW = pageW - margin * 2;
+    const selectedTech = technicians.find(t => t.id === formData.technician_id);
+    const refNum = `VC-${Date.now().toString().slice(-8)}`;
+    const now = new Date();
+    let y = 20;
+
+    // --- HEADER BAR ---
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageW, 40, 'F');
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 38, pageW, 3, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('VecinosConnect', margin, 18);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Plataforma de Servicios del Hogar', margin, 26);
     
-    doc.setFontSize(14);
-    doc.text(`Inquilino: ${user.name}`, 20, 40);
-    doc.text(`Servicio Contratado: ${formData.service_category}`, 20, 50);
-    doc.text(`Fecha y Hora: ${new Date(formData.appointment_date).toLocaleString()}`, 20, 60);
-    
-    doc.text('Firma del Inquilino:', 20, 80);
-    if (signatureUrl) {
-      doc.addImage(signatureUrl, 'PNG', 20, 90, 80, 40);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RECIBO DE CONTRATACI\u00d3N', pageW - margin, 18, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Ref: ${refNum}`, pageW - margin, 26, { align: 'right' });
+    doc.text(`Fecha: ${now.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}`, pageW - margin, 32, { align: 'right' });
+
+    y = 52;
+    doc.setTextColor(30, 30, 30);
+
+    // --- CLIENT & TECHNICIAN INFO BOXES ---
+    const boxW = (contentW - 10) / 2;
+
+    // Client box
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, y, boxW, 45, 3, 3, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, y, boxW, 45, 3, 3, 'S');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATOS DEL CLIENTE', margin + 8, y + 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(user.name || 'N/A', margin + 8, y + 20);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(user.email || '', margin + 8, y + 27);
+    doc.text('Rol: Inquilino', margin + 8, y + 34);
+
+    // Technician box
+    const techX = margin + boxW + 10;
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(techX, y, boxW, 45, 3, 3, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(techX, y, boxW, 45, 3, 3, 'S');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATOS DEL T\u00c9CNICO', techX + 8, y + 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 30);
+    doc.text(selectedTech?.name || 'N/A', techX + 8, y + 20);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Especialidad: ${formData.service_category}`, techX + 8, y + 27);
+    doc.text(`Tarifa: ${selectedTech?.hourly_rate || 30}\u20ac/hora`, techX + 8, y + 34);
+
+    y += 58;
+
+    // --- SERVICE TABLE ---
+    doc.setFillColor(59, 130, 246);
+    doc.roundedRect(margin, y, contentW, 10, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SERVICIO', margin + 8, y + 7);
+    doc.text('FECHA', margin + 80, y + 7);
+    doc.text('HORA', margin + 120, y + 7);
+    doc.text('ESTADO', pageW - margin - 8, y + 7, { align: 'right' });
+    y += 12;
+
+    doc.setFillColor(248, 250, 252);
+    doc.rect(margin, y, contentW, 12, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(margin, y, contentW, 12, 'S');
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const appDate = new Date(formData.appointment_date);
+    doc.text(formData.service_category, margin + 8, y + 8);
+    doc.text(appDate.toLocaleDateString('es-ES'), margin + 80, y + 8);
+    doc.text(appDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), margin + 120, y + 8);
+    doc.setTextColor(34, 197, 94);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONFIRMADO', pageW - margin - 8, y + 8, { align: 'right' });
+
+    y += 22;
+
+    // --- DESCRIPTION ---
+    if (formData.description) {
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DESCRIPCI\u00d3N DEL SERVICIO', margin, y);
+      y += 6;
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(255, 251, 235);
+      const descLines = doc.splitTextToSize(formData.description, contentW - 16);
+      const descH = descLines.length * 5 + 10;
+      doc.roundedRect(margin, y, contentW, descH, 2, 2, 'FD');
+      doc.setTextColor(60, 60, 60);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.text(descLines, margin + 8, y + 8);
+      y += descH + 10;
+    } else {
+      y += 5;
     }
-    
+
+    // --- PRICING SUMMARY ---
+    const rate = parseFloat(selectedTech?.hourly_rate) || 30;
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RESUMEN ECON\u00d3MICO (ESTIMADO)', margin, y);
+    y += 6;
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, y, contentW, 32, 2, 2, 'S');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Tarifa por hora:`, margin + 8, y + 9);
+    doc.text(`${rate.toFixed(2)} \u20ac`, pageW - margin - 8, y + 9, { align: 'right' });
+    doc.setDrawColor(240, 240, 240);
+    doc.line(margin + 8, y + 13, pageW - margin - 8, y + 13);
+    doc.text('IVA (21%):', margin + 8, y + 20);
+    doc.text(`Seg\u00fan horas finales`, pageW - margin - 8, y + 20, { align: 'right' });
+    doc.line(margin + 8, y + 24, pageW - margin - 8, y + 24);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(59, 130, 246);
+    doc.text('Total estimado (1h):', margin + 8, y + 30);
+    doc.text(`${(rate * 1.21).toFixed(2)} \u20ac`, pageW - margin - 8, y + 30, { align: 'right' });
+
+    y += 44;
+
+    // --- SIGNATURE ---
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FIRMA DEL INQUILINO', margin, y);
+    y += 4;
+    if (signatureUrl) {
+      doc.addImage(signatureUrl, 'PNG', margin, y, 70, 35);
+    }
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineDashPattern([2, 2], 0);
+    doc.line(margin, y + 36, margin + 70, y + 36);
+    doc.setLineDashPattern([], 0);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(user.name || '', margin, y + 42);
+
+    // --- FOOTER ---
+    const footerY = 275;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, footerY - 5, pageW - margin, footerY - 5);
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 160);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Este documento es un recibo digital generado autom\u00e1ticamente por VecinosConnect.', margin, footerY);
+    doc.text('El importe final ser\u00e1 confirmado por el t\u00e9cnico tras la aceptaci\u00f3n del servicio.', margin, footerY + 5);
+    doc.text(`Ref: ${refNum} | ${now.toLocaleString('es-ES')} | vecinosconnect.com`, pageW - margin, footerY + 5, { align: 'right' });
+
     return doc;
   };
 
