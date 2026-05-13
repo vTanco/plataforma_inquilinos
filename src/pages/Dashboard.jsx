@@ -39,53 +39,83 @@ const TechnicianDashboard = ({ user }) => {
     }
   };
 
+  const getTileClassName = ({ date, view }) => {
+    if (view === 'month') {
+      const hasApp = appointments.find(app => {
+        const appDate = new Date(app.appointment_date);
+        return appDate.getDate() === date.getDate() &&
+               appDate.getMonth() === date.getMonth() &&
+               appDate.getFullYear() === date.getFullYear() &&
+               app.status !== 'rejected' && app.status !== 'cancelled';
+      });
+      return hasApp ? 'has-appointment' : null;
+    }
+    return null;
+  };
+
   return (
     <div className="page-container animate-fade-in">
       <h2 style={{ fontSize: '2rem', marginBottom: '24px' }}>Panel de Técnico: {user.name}</h2>
       
-      <div className="glass-panel">
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CalendarIcon className="text-primary" /> Mi Agenda de Trabajos
-        </h3>
-        
-        {appointments.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>Aún no tienes citas programadas.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {appointments.map(app => (
-              <div key={app.id} style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h4 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>{app.service_category} - Cliente: {app.other_party_name}</h4>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={16} /> {new Date(app.appointment_date).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' || app.status === 'rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' || app.status === 'rejected' ? '#ef4444' : '#22c55e'), display: 'inline-block', marginBottom: '8px' }}>
-                    {app.status === 'cancelled' ? 'ANULADA' : (app.status === 'rejected' ? 'RECHAZADA' : (app.status === 'accepted' ? 'ACEPTADA' : app.status.toUpperCase()))}
-                  </span>
-                  {app.pdf_document && app.status !== 'cancelled' && (
-                    <div style={{ marginTop: '8px' }}>
-                      <a href={app.pdf_document} download={`Recibo_${app.service_category}.pdf`} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                        <FileText size={14} /> Ver Recibo
-                      </a>
-                    </div>
-                  )}
-                  {app.status === 'pending' && (
-                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                      <button onClick={() => updateStatus(app.id, 'accepted')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#22c55e', color: '#22c55e' }}>
-                        Aceptar
-                      </button>
-                      <button onClick={() => updateStatus(app.id, 'rejected')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
-                        Rechazar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+      <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div className="glass-panel" style={{ flex: '1 1 350px' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CalendarIcon className="text-primary" /> Mi Calendario
+          </h3>
+          <ReactCalendar 
+            tileClassName={getTileClassName}
+            locale="es-ES"
+          />
+          <div style={{ marginTop: '16px', fontSize: '0.9rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '16px', height: '16px', background: 'rgba(139, 92, 246, 0.4)', border: '1px solid var(--accent)', borderRadius: '4px' }}></div>
+            <span>Día con cita programada</span>
           </div>
-        )}
+        </div>
+
+        <div className="glass-panel" style={{ flex: '2 1 500px' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText className="text-primary" /> Mi Agenda de Trabajos
+          </h3>
+          
+          {appointments.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>Aún no tienes citas programadas.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {appointments.map(app => (
+                <div key={app.id} style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1.1rem', marginBottom: '4px' }}>{app.service_category} - Cliente: {app.other_party_name}</h4>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={16} /> {new Date(app.appointment_date).toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' || app.status === 'rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' || app.status === 'rejected' ? '#ef4444' : '#22c55e'), display: 'inline-block', marginBottom: '8px' }}>
+                      {app.status === 'cancelled' ? 'ANULADA' : (app.status === 'rejected' ? 'RECHAZADA' : (app.status === 'accepted' ? 'ACEPTADA' : app.status.toUpperCase()))}
+                    </span>
+                    {app.pdf_document && app.status !== 'cancelled' && (
+                      <div style={{ marginTop: '8px' }}>
+                        <a href={app.pdf_document} download={`Recibo_${app.service_category}.pdf`} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                          <FileText size={14} /> Ver Recibo
+                        </a>
+                      </div>
+                    )}
+                    {app.status === 'pending' && (
+                      <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                        <button onClick={() => updateStatus(app.id, 'accepted')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#22c55e', color: '#22c55e' }}>
+                          Aceptar
+                        </button>
+                        <button onClick={() => updateStatus(app.id, 'rejected')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
+                          Rechazar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
