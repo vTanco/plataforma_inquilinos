@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Calendar as CalendarIcon, Clock, Star, PenTool, CheckCircle, AlertCircle, FileText, User } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
+import { PayPalButtons } from '@paypal/react-paypal-js';
 import SignatureCanvas from 'react-signature-canvas';
 import jsPDF from 'jspdf';
 import ReactCalendar from 'react-calendar';
@@ -637,13 +638,12 @@ const TenantDashboard = ({ user }) => {
         const subtotal = rate * hours;
         const iva = subtotal * 0.21;
         const total = subtotal + iva;
-        const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=pagos@vecinosconnect.com&item_name=Servicio de ${paymentModal.service_category}&amount=${total.toFixed(2)}&currency_code=EUR`;
 
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }} onClick={() => setPaymentModal(null)}>
             <div className="glass-panel animate-fade-in" style={{ maxWidth: '480px', width: '90%', margin: '0' }} onClick={e => e.stopPropagation()}>
               <h3 style={{ fontSize: '1.4rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText className="text-primary" /> Desglose de Pago
+                <FileText className="text-primary" /> Desglose de Donación
               </h3>
 
               <div style={{ marginBottom: '20px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -672,17 +672,49 @@ const TenantDashboard = ({ user }) => {
                 </div>
                 <div style={{ height: '1px', background: 'var(--border)' }}></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 700 }}>
-                  <span>Total</span>
+                  <span>Total (Donación)</span>
                   <span style={{ color: 'var(--primary)' }}>{total.toFixed(2)} €</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={() => setPaymentModal(null)} className="btn btn-outline" style={{ flex: 1 }}>Cancelar</button>
-                <button onClick={() => window.open(paypalUrl, '_blank')} className="btn btn-primary" style={{ flex: 1, background: '#0070ba', borderColor: '#0070ba' }}>
-                  Pagar {total.toFixed(2)} € con PayPal
-                </button>
+              <div style={{ marginBottom: '12px' }}>
+                <PayPalButtons
+                  style={{ layout: 'vertical', color: 'blue', shape: 'rect', label: 'donate', height: 45 }}
+                  createOrder={(data, actions) => {
+                    return actions.order.create({
+                      purchase_units: [{
+                        amount: { value: total.toFixed(2), currency_code: 'EUR' },
+                        description: `Donación por servicio de ${paymentModal.service_category}`
+                      }]
+                    });
+                  }}
+                  onApprove={async (data, actions) => {
+                    await actions.order.capture();
+                    try {
+                      await fetch(`/api/appointments/${paymentModal.id}/status`, {
+                        method: 'PATCH',
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ status: 'paid' })
+                      });
+                      setAppointments(appointments.map(a => a.id === paymentModal.id ? { ...a, status: 'paid' } : a));
+                      setPaymentModal(null);
+                      alert('¡Donación completada con éxito! Gracias por tu contribución.');
+                    } catch (err) {
+                      console.error(err);
+                      alert('Donación recibida pero hubo un error actualizando el estado.');
+                    }
+                  }}
+                  onError={(err) => {
+                    console.error('PayPal error:', err);
+                    alert('Hubo un error con PayPal. Inténtalo de nuevo.');
+                  }}
+                />
               </div>
+
+              <button onClick={() => setPaymentModal(null)} className="btn btn-outline" style={{ width: '100%' }}>Cancelar</button>
             </div>
           </div>
         );
