@@ -34,6 +34,9 @@ pool.connect(async (err, client, release) => {
       await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS signature TEXT;');
       await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pdf_document TEXT;');
       await client.query('ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(6,2) DEFAULT 30.0;');
+      
+      // Auto-migrate to add estimated_hours if it doesn't exist
+      await client.query('ALTER TABLE appointments ADD COLUMN IF NOT EXISTS estimated_hours INTEGER DEFAULT 1;');
       console.log('Migrations executed successfully');
     } catch (migErr) {
       console.error('Migration failed', migErr);
@@ -241,7 +244,7 @@ app.get('/api/technicians/:id/appointments', authenticateToken, async (req, res)
   const { id } = req.params;
   try {
     const result = await pool.query(
-      'SELECT appointment_date FROM appointments WHERE technician_id = $1',
+      "SELECT appointment_date, estimated_hours FROM appointments WHERE technician_id = $1 AND status != 'rejected' AND status != 'cancelled'",
       [id]
     );
     res.json(result.rows);
@@ -283,21 +286,26 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
 
 app.patch('/api/appointments/:id/status', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, estimated_hours } = req.body;
   try {
     if (!['accepted', 'rejected', 'cancelled', 'paid'].includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
 
     let query = '';
+    let params = [];
     if (req.user.role === 'tenant') {
       if (status !== 'cancelled' && status !== 'paid') return res.status(403).json({ error: 'No autorizado para este estado' });
       query = "UPDATE appointments SET status = $1 WHERE id = $2 AND tenant_id = $3 RETURNING *";
+      params = [status, id, req.user.id];
     } else {
       if (status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return res.status(403).json({ error: 'No autorizado para este estado' });
-      query = "UPDATE appointments SET status = $1 WHERE id = $2 AND technician_id = $3 RETURNING *";
+      
+      const hours = parseInt(estimated_hours) || 1;
+      query = "UPDATE appointments SET status = $1, estimated_hours = $4 WHERE id = $2 AND technician_id = $3 RETURNING *";
+      params = [status, id, req.user.id, hours];
     }
-    const result = await pool.query(query, [status, id, req.user.id]);
+    const result = await pool.query(query, params);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });

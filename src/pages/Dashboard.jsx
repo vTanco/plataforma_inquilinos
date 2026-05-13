@@ -22,6 +22,13 @@ const TechnicianDashboard = ({ user }) => {
   const updateStatus = async (id, newStatus) => {
     let msg = newStatus === 'accepted' ? '¿Aceptar esta cita?' : (newStatus === 'rejected' ? '¿Rechazar esta cita?' : '¿Anular esta cita?');
     if (window.confirm(msg)) {
+      let estimated_hours = 1;
+      if (newStatus === 'accepted') {
+        const inputHours = window.prompt('¿Cuántas horas estimas que durará este trabajo? (Bloqueará tu calendario)', '1');
+        if (inputHours === null) return;
+        estimated_hours = parseInt(inputHours) || 1;
+      }
+
       try {
         const res = await fetch(`/api/appointments/${id}/status`, {
           method: 'PATCH',
@@ -29,10 +36,10 @@ const TechnicianDashboard = ({ user }) => {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ status: newStatus })
+          body: JSON.stringify({ status: newStatus, estimated_hours })
         });
         if (!res.ok) throw new Error('Error al actualizar');
-        setAppointments(appointments.map(app => app.id === id ? { ...app, status: newStatus } : app));
+        setAppointments(appointments.map(app => app.id === id ? { ...app, status: newStatus, estimated_hours } : app));
       } catch (err) {
         alert('Hubo un error al actualizar la cita');
         console.error(err);
@@ -193,7 +200,10 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
-            setBookedAppointments(data.map(app => new Date(app.appointment_date)));
+            setBookedAppointments(data.map(app => ({
+              date: new Date(app.appointment_date),
+              hours: app.estimated_hours || 1
+            })));
           }
         })
         .catch(console.error);
@@ -205,8 +215,19 @@ const HireServiceFlow = ({ user, onComplete, onCancel }) => {
     const [hours, minutes] = time.split(':');
     const timeDate = new Date(selectedDate);
     timeDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-    const timeStr = timeDate.toISOString();
-    return bookedAppointments.some(d => d.toISOString() === timeStr);
+    const targetHour = timeDate.getHours();
+    
+    return bookedAppointments.some(app => {
+      const isSameDay = app.date.getDate() === timeDate.getDate() &&
+                        app.date.getMonth() === timeDate.getMonth() &&
+                        app.date.getFullYear() === timeDate.getFullYear();
+      if (!isSameDay) return false;
+
+      const startHour = app.date.getHours();
+      const endHour = startHour + app.hours;
+
+      return targetHour >= startHour && targetHour < endHour;
+    });
   };
 
   useEffect(() => {
