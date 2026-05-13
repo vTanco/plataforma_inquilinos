@@ -281,24 +281,31 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
   }
 });
 
-app.patch('/api/appointments/:id/cancel', authenticateToken, async (req, res) => {
+app.patch('/api/appointments/:id/status', authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const { status } = req.body;
   try {
+    if (!['accepted', 'rejected', 'cancelled', 'paid'].includes(status)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+
     let query = '';
     if (req.user.role === 'tenant') {
-      query = "UPDATE appointments SET status = 'cancelled' WHERE id = $1 AND tenant_id = $2 RETURNING *";
+      if (status !== 'cancelled' && status !== 'paid') return res.status(403).json({ error: 'No autorizado para este estado' });
+      query = "UPDATE appointments SET status = $1 WHERE id = $2 AND tenant_id = $3 RETURNING *";
     } else {
-      query = "UPDATE appointments SET status = 'cancelled' WHERE id = $1 AND technician_id = $2 RETURNING *";
+      if (status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return res.status(403).json({ error: 'No autorizado para este estado' });
+      query = "UPDATE appointments SET status = $1 WHERE id = $2 AND technician_id = $3 RETURNING *";
     }
-    const result = await pool.query(query, [id, req.user.id]);
+    const result = await pool.query(query, [status, id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error cancelling appointment:', err);
-    res.status(500).json({ error: 'Error cancelando la cita' });
+    console.error('Error updating appointment status:', err);
+    res.status(500).json({ error: 'Error actualizando el estado de la cita' });
   }
 });
 

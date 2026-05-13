@@ -18,17 +18,22 @@ const TechnicianDashboard = ({ user }) => {
       .catch(err => console.error(err));
   }, []);
 
-  const handleCancel = async (id) => {
-    if (window.confirm('¿Estás seguro de que deseas anular esta cita?')) {
+  const updateStatus = async (id, newStatus) => {
+    let msg = newStatus === 'accepted' ? '¿Aceptar esta cita?' : (newStatus === 'rejected' ? '¿Rechazar esta cita?' : '¿Anular esta cita?');
+    if (window.confirm(msg)) {
       try {
-        const res = await fetch(`/api/appointments/${id}/cancel`, {
+        const res = await fetch(`/api/appointments/${id}/status`, {
           method: 'PATCH',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: newStatus })
         });
-        if (!res.ok) throw new Error('Error al anular');
-        setAppointments(appointments.map(app => app.id === id ? { ...app, status: 'cancelled' } : app));
+        if (!res.ok) throw new Error('Error al actualizar');
+        setAppointments(appointments.map(app => app.id === id ? { ...app, status: newStatus } : app));
       } catch (err) {
-        alert('Hubo un error al anular la cita');
+        alert('Hubo un error al actualizar la cita');
         console.error(err);
       }
     }
@@ -56,8 +61,8 @@ const TechnicianDashboard = ({ user }) => {
                   </p>
                 </div>
                 <div>
-                  <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' ? '#ef4444' : '#22c55e'), display: 'inline-block', marginBottom: '8px' }}>
-                    {app.status === 'cancelled' ? 'ANULADA' : app.status.toUpperCase()}
+                  <span style={{ padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' || app.status === 'rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' || app.status === 'rejected' ? '#ef4444' : '#22c55e'), display: 'inline-block', marginBottom: '8px' }}>
+                    {app.status === 'cancelled' ? 'ANULADA' : (app.status === 'rejected' ? 'RECHAZADA' : (app.status === 'accepted' ? 'ACEPTADA' : app.status.toUpperCase()))}
                   </span>
                   {app.pdf_document && app.status !== 'cancelled' && (
                     <div style={{ marginTop: '8px' }}>
@@ -67,9 +72,12 @@ const TechnicianDashboard = ({ user }) => {
                     </div>
                   )}
                   {app.status === 'pending' && (
-                    <div style={{ marginTop: '8px' }}>
-                      <button onClick={() => handleCancel(app.id)} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
-                        Anular
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                      <button onClick={() => updateStatus(app.id, 'accepted')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#22c55e', color: '#22c55e' }}>
+                        Aceptar
+                      </button>
+                      <button onClick={() => updateStatus(app.id, 'rejected')} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
+                        Rechazar
                       </button>
                     </div>
                   )}
@@ -394,9 +402,13 @@ const TenantDashboard = ({ user }) => {
   const handleCancel = async (id) => {
     if (window.confirm('¿Estás seguro de que deseas anular esta cita?')) {
       try {
-        const res = await fetch(`/api/appointments/${id}/cancel`, {
+        const res = await fetch(`/api/appointments/${id}/status`, {
           method: 'PATCH',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'cancelled' })
         });
         if (!res.ok) throw new Error('Error al anular');
         setAppointments(appointments.map(app => app.id === id ? { ...app, status: 'cancelled' } : app));
@@ -472,8 +484,8 @@ const TenantDashboard = ({ user }) => {
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' ? '#ef4444' : '#22c55e') }}>
-                    {app.status === 'cancelled' ? 'ANULADA' : app.status.toUpperCase()}
+                  <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 500, background: app.status === 'pending' ? 'rgba(234, 179, 8, 0.2)' : (app.status === 'cancelled' || app.status === 'rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'), color: app.status === 'pending' ? '#eab308' : (app.status === 'cancelled' || app.status === 'rejected' ? '#ef4444' : '#22c55e') }}>
+                    {app.status === 'cancelled' ? 'ANULADA' : (app.status === 'rejected' ? 'RECHAZADA' : (app.status === 'accepted' ? 'ACEPTADA' : app.status.toUpperCase()))}
                   </span>
                   {app.pdf_document && app.status !== 'cancelled' && (
                     <a href={app.pdf_document} download={`Recibo_${app.service_category}.pdf`} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
@@ -483,6 +495,11 @@ const TenantDashboard = ({ user }) => {
                   {app.status === 'pending' && (
                     <button onClick={() => handleCancel(app.id)} className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#ef4444', color: '#ef4444' }}>
                       Anular
+                    </button>
+                  )}
+                  {app.status === 'accepted' && (
+                    <button onClick={() => window.open(`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=pagos@vecinosconnect.com&item_name=Servicio de ${app.service_category}&currency_code=EUR`, '_blank')} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', background: '#0070ba', borderColor: '#0070ba', color: 'white' }}>
+                      Pagar con PayPal
                     </button>
                   )}
                   <button className="btn btn-outline" style={{ padding: '6px 12px', fontSize: '0.85rem', borderColor: '#ef4444', color: '#ef4444' }}>
