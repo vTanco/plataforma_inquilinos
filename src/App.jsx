@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Wrench, Droplets, Zap, Paintbrush, TreePine, CloudRain, UserPlus, CalendarCheck, LogOut } from 'lucide-react';
+import { Home, Wrench, Droplets, Zap, Paintbrush, TreePine, CloudRain, UserPlus, CalendarCheck, LogOut, Star, Shield, Clock, MapPin, ChevronRight } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
@@ -231,6 +231,158 @@ const HomePage = () => {
 import { Login, Register } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 
+const ServicesPage = () => {
+  const services = [
+    { icon: <Droplets size={32} />, name: 'Fontanería', desc: 'Reparación de tuberías, grifos, cisternas y desatascos. Instalaciones de agua caliente y fría.', features: ['Reparación de fugas', 'Instalación de grifería', 'Desatascos profesionales', 'Revisión de calderas'] },
+    { icon: <Wrench size={32} />, name: 'Carpintería', desc: 'Muebles a medida, puertas, ventanas y todo tipo de trabajo en madera de alta calidad.', features: ['Muebles a medida', 'Instalación de puertas', 'Reparación de tarimas', 'Montaje de cocinas'] },
+    { icon: <Zap size={32} />, name: 'Electricidad', desc: 'Instalaciones eléctricas, cuadros, enchufes y revisiones de seguridad certificadas.', features: ['Instalación de puntos de luz', 'Revisión de cuadros', 'Certificados eléctricos', 'Domótica básica'] },
+    { icon: <Paintbrush size={32} />, name: 'Pintura', desc: 'Pintura de interiores y exteriores con acabados profesionales y materiales de primera.', features: ['Pintura interior', 'Fachadas exteriores', 'Alisado de paredes', 'Pintura decorativa'] },
+    { icon: <TreePine size={32} />, name: 'Jardinería', desc: 'Diseño, mantenimiento y cuidado integral de jardines, terrazas y espacios verdes.', features: ['Poda y desbroce', 'Sistemas de riego', 'Diseño de jardines', 'Mantenimiento mensual'] },
+    { icon: <CloudRain size={32} />, name: 'Humedades', desc: 'Diagnóstico y tratamiento profesional de humedades, filtraciones e impermeabilizaciones.', features: ['Diagnóstico gratuito', 'Impermeabilización', 'Tratamiento de moho', 'Inyección de resinas'] },
+  ];
+
+  const [visible, setVisible] = React.useState({});
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) setVisible(prev => ({ ...prev, [e.target.id]: true })); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div style={{ overflow: 'hidden' }}>
+      <section className="page-container" style={{ paddingTop: '80px', paddingBottom: '40px' }}>
+        <div className={`section-header ${visible['srv-header'] ? 'visible' : ''}`} id="srv-header" data-reveal>
+          <span className="section-tag">Servicios Profesionales</span>
+          <h1 className="section-title">Todo lo que tu hogar <span className="text-gradient">necesita</span></h1>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '16px auto 0', fontSize: '1.1rem' }}>Profesionales verificados a un clic de distancia. Selecciona el servicio que necesitas y encuentra al técnico ideal.</p>
+        </div>
+      </section>
+
+      <section className="page-container" style={{ paddingTop: '0', paddingBottom: '120px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          {services.map((srv, i) => (
+            <div key={i} id={`srvd-${i}`} data-reveal className={`service-card-new ${visible[`srvd-${i}`] ? 'visible' : ''}`} style={{ animationDelay: `${i * 0.08}s`, display: 'flex', gap: '32px', alignItems: 'flex-start', flexWrap: 'wrap', padding: '32px' }}>
+              <div style={{ flex: '0 0 64px' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15))', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {srv.icon}
+                </div>
+              </div>
+              <div style={{ flex: '1 1 300px' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>{srv.name}</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1.7, marginBottom: '20px' }}>{srv.desc}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                  {srv.features.map((f, j) => (
+                    <div key={j} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      <ChevronRight size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} /> {f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ flex: '0 0 auto', alignSelf: 'center' }}>
+                <Link to="/register" className="btn btn-primary">Solicitar</Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const TechniciansPage = () => {
+  const [technicians, setTechnicians] = React.useState([]);
+  const [filter, setFilter] = React.useState('Todos');
+  const [visible, setVisible] = React.useState({});
+  const categories = ['Todos', 'Fontanería', 'Carpintería', 'Electricidad', 'Pintura', 'Jardinería', 'Humedades'];
+
+  React.useEffect(() => {
+    fetch('/api/technicians/public')
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setTechnicians(data); })
+      .catch(console.error);
+  }, []);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) setVisible(prev => ({ ...prev, [e.target.id]: true })); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, [technicians, filter]);
+
+  const filtered = filter === 'Todos' ? technicians : technicians.filter(t => t.service_category === filter);
+
+  return (
+    <div style={{ overflow: 'hidden' }}>
+      <section className="page-container" style={{ paddingTop: '80px', paddingBottom: '40px' }}>
+        <div className={`section-header ${visible['tech-header'] ? 'visible' : ''}`} id="tech-header" data-reveal>
+          <span className="section-tag">Nuestro Equipo</span>
+          <h1 className="section-title">Técnicos <span className="text-gradient">verificados</span></h1>
+          <p style={{ color: 'var(--text-muted)', maxWidth: '600px', margin: '16px auto 0', fontSize: '1.1rem' }}>Profesionales de confianza con perfiles verificados, valoraciones reales y tarifas transparentes.</p>
+        </div>
+      </section>
+
+      <section className="page-container" style={{ paddingTop: '0', paddingBottom: '120px' }}>
+        {/* Filter pills */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '40px', justifyContent: 'center' }}>
+          {categories.map(cat => (
+            <button key={cat} onClick={() => setFilter(cat)} className={filter === cat ? 'btn btn-primary' : 'btn btn-outline'} style={{ padding: '8px 20px', fontSize: '0.9rem', borderRadius: '50px' }}>
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '1.1rem', padding: '60px 0' }}>No hay técnicos disponibles en esta categoría todavía.</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+            {filtered.map((tech, i) => (
+              <div key={tech.id} id={`tech-${i}`} data-reveal className={`service-card-new ${visible[`tech-${i}`] ? 'visible' : ''}`} style={{ animationDelay: `${i * 0.08}s`, padding: '28px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '4px' }}>{tech.name}</h3>
+                    <span style={{ fontSize: '0.8rem', padding: '3px 10px', borderRadius: '20px', background: 'rgba(139,92,246,0.12)', color: '#a78bfa', fontWeight: 500 }}>{tech.service_category}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '8px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                    <Shield size={14} style={{ color: '#22c55e' }} />
+                    <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 600 }}>Verificado</span>
+                  </div>
+                </div>
+
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '16px', minHeight: '50px' }}>{tech.description || 'Profesional con amplia experiencia en el sector.'}</p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '1px' }}>
+                      {[1,2,3,4,5].map(s => <Star key={s} size={14} fill={s <= Math.floor(parseFloat(tech.rating) || 0) ? '#fbbf24' : 'transparent'} color="#fbbf24" />)}
+                    </div>
+                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{parseFloat(tech.rating || 0).toFixed(1)}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({tech.reviews_count || 0})</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    <Clock size={14} /> Respuesta rápida
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                  <div>
+                    <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--primary)' }}>{parseFloat(tech.hourly_rate || 30).toFixed(0)}€</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}> / hora</span>
+                  </div>
+                  <Link to="/register" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '0.9rem' }}>Contratar</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+};
+
 const App = () => {
   return (
     <Router>
@@ -238,8 +390,8 @@ const App = () => {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/services" element={<div className="page-container"><h2>Servicios (Próximamente)</h2></div>} />
-        <Route path="/technicians" element={<div className="page-container"><h2>Técnicos (Próximamente)</h2></div>} />
+        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/technicians" element={<TechniciansPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register role="tenant" />} />
         <Route path="/technicians/register" element={<Register role="technician" />} />

@@ -205,6 +205,21 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+app.get('/api/technicians/public', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.name, t.service_category, t.description, t.rating, t.reviews_count, t.hourly_rate
+      FROM users u 
+      JOIN technician_profiles t ON u.id = t.user_id
+      ORDER BY t.rating DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error fetching technicians' });
+  }
+});
+
 app.get('/api/technicians', authenticateToken, async (req, res) => {
   const { category } = req.query;
   try {
