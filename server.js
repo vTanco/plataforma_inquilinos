@@ -288,9 +288,9 @@ app.get('/api/appointments', authenticateToken, async (req, res) => {
   try {
     let query = '';
     if (req.user.role === 'tenant') {
-      query = 'SELECT a.*, u.name as other_party_name, tp.hourly_rate FROM appointments a JOIN users u ON a.technician_id = u.id LEFT JOIN technician_profiles tp ON u.id = tp.user_id WHERE a.tenant_id = $1 ORDER BY a.appointment_date DESC';
+      query = 'SELECT a.*, u.name as other_party_name, u.email as other_party_email, tp.hourly_rate FROM appointments a JOIN users u ON a.technician_id = u.id LEFT JOIN technician_profiles tp ON u.id = tp.user_id WHERE a.tenant_id = $1 ORDER BY a.appointment_date DESC';
     } else {
-      query = "SELECT a.*, COALESCE(u.name, 'Evento de Google Calendar') as other_party_name FROM appointments a LEFT JOIN users u ON a.tenant_id = u.id WHERE a.technician_id = $1 ORDER BY a.appointment_date DESC";
+      query = "SELECT a.*, u.email as other_party_email, COALESCE(u.name, 'Evento de Google Calendar') as other_party_name FROM appointments a LEFT JOIN users u ON a.tenant_id = u.id WHERE a.technician_id = $1 ORDER BY a.appointment_date DESC";
     }
     const result = await pool.query(query, [req.user.id]);
     res.json(result.rows);
@@ -318,8 +318,8 @@ app.patch('/api/appointments/:id/status', authenticateToken, async (req, res) =>
       if (status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return res.status(403).json({ error: 'No autorizado para este estado' });
       
       const hours = parseInt(estimated_hours) || 1;
-      query = "UPDATE appointments SET status = $1, estimated_hours = $4 WHERE id = $2 AND technician_id = $3 RETURNING *";
-      params = [status, id, req.user.id, hours];
+      query = "UPDATE appointments SET status = $1, estimated_hours = $4, pdf_document = $5 WHERE id = $2 AND technician_id = $3 RETURNING *";
+      params = [status, id, req.user.id, hours, req.body.pdf_document || null];
     }
     const result = await pool.query(query, params);
     
